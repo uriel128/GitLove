@@ -3,8 +3,10 @@ frontend/node_modules
 backend/node_modules
 backend/dist
 .DS_Store
+.env
 frontend/.next
 frontend/out
 frontend/.env.local
 backend/.env
 *.tsbuildinfo
+npm-debug.log*
