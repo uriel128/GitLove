@@ -141,9 +141,7 @@ export default function LandingPage() {
               Dating for developers who actually build
             </p>
             <h1 className="text-4xl font-bold leading-tight md:text-6xl">
-              Match by vibe,
-              <br />
-              connect by code.
+              Match by skill
             </h1>
             <p className={`mt-4 max-w-xl text-base md:text-lg ${isDark ? "text-white/78" : "text-violet-900/70"}`}>
               GitLove keeps it friendly and real: swipe profiles you like, then unlock the match by solving the same coding challenge together.
