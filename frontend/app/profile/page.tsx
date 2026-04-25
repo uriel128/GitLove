@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { RequireAuth } from "@/components/require-auth";
 import { User } from "@/lib/types";
 
 type ProfileForm = {
@@ -117,7 +118,8 @@ export default function ProfilePage() {
   });
 
   return (
-    <div className="space-y-4">
+    <RequireAuth>
+      <div className="space-y-4">
       <section className="rounded-md border border-line bg-panel p-4">
         <h1 className="text-lg font-semibold">User Profile / Config File</h1>
         <div className="mt-3 grid gap-3 md:grid-cols-[260px_1fr]">
@@ -218,7 +220,8 @@ export default function ProfilePage() {
           Save Profile
         </button>
       </section>
-    </div>
+      </div>
+    </RequireAuth>
   );
 }
 

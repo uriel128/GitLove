@@ -1,186 +1,266 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Heart, LogIn, Moon, Sparkles, Sun } from "lucide-react";
 import { useState } from "react";
-import {
-  Activity,
-  ArrowRight,
-  Code2,
-  Heart,
-  MessageSquareText,
-  Moon,
-  Sun,
-  TerminalSquare
-} from "lucide-react";
+import { useAuth } from "@/lib/auth";
 
-const protocolItems = [
-  { title: "Swipe", description: "Browse profiles and choose who you want to challenge." },
-  { title: "Challenge", description: "Right swipe opens a coding prompt matched to your level." },
-  { title: "One Try", description: "You get exactly one attempt to pass and send interest." },
-  { title: "Handshake", description: "Recipient solves the same prompt to finalize match." },
-  { title: "Merge", description: "Passed both sides unlocks chat with markdown + code." }
-];
-
-const pageItems = [
-  { title: "Home", description: "Swipe and launch Proof of Work challenge gate.", href: "/home" },
-  { title: "Chat", description: "Real-time matched chat with markdown + code.", href: "/chat" },
-  { title: "User Profile", description: "Set your 12 standardized developer signals.", href: "/profile" },
-  { title: "Build Log", description: "Track success rate, commits, pending pull requests.", href: "/build-log" },
-  { title: "Stack Trace", description: "Global trends, live merges, and language momentum.", href: "/stack-trace" }
+const profiles = [
+  {
+    name: "Nora, 25",
+    role: "Frontend Engineer",
+    tags: ["React", "TypeScript", "Coffee Dates"],
+    image:
+      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80"
+  },
+  {
+    name: "Noah, 27",
+    role: "Backend Engineer",
+    tags: ["Node.js", "System Design", "Board Games"],
+    image:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=80"
+  },
+  {
+    name: "Maya, 24",
+    role: "ML Engineer",
+    tags: ["Python", "LeetCode", "Sunset Walks"],
+    image:
+      "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?auto=format&fit=crop&w=900&q=80"
+  }
 ];
 
 export default function LandingPage() {
-  const [mode, setMode] = useState<"dark" | "light">("dark");
-  const dark = mode === "dark";
+  const router = useRouter();
+  const { isSignedIn, login } = useAuth();
+  const [isDark, setIsDark] = useState(true);
+  const guestTabs = [
+    { label: "Home", href: "#home" },
+    { label: "About", href: "#about" },
+    { label: "Contact", href: "#contact" }
+  ];
+  const signedInTabs = [
+    { label: "Home", href: "/home" },
+    { label: "Chat", href: "/chat" },
+    { label: "Build Log", href: "/build-log" },
+    { label: "Stack Trace", href: "/stack-trace" },
+    { label: "Profile", href: "/profile" }
+  ];
+  const navTabs = isSignedIn ? signedInTabs : guestTabs;
+  const profile = profiles[0];
 
   return (
-    <div className={dark ? "bg-[#0b0f14] text-slate-100" : "bg-slate-50 text-slate-900"}>
-      <section className="relative h-[74vh] min-h-[540px] w-full overflow-hidden">
-        <img
-          src="https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&w=1800&q=80"
-          alt="Developers collaborating with laptops"
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-        <div className={`absolute inset-0 ${dark ? "bg-black/60" : "bg-white/45"}`} />
+    <div
+      className={`relative min-h-screen overflow-hidden ${
+        isDark ? "bg-[#09070f] text-[#f4f0ff]" : "bg-[#ffffff] text-[#241338]"
+      }`}
+    >
+      <div
+        className={`pointer-events-none absolute inset-0 ${
+          isDark
+            ? "bg-[radial-gradient(circle_at_15%_0%,rgba(109,40,217,0.25),transparent_45%),radial-gradient(circle_at_90%_10%,rgba(139,92,246,0.18),transparent_40%)]"
+            : "bg-[radial-gradient(circle_at_20%_0%,rgba(167,139,250,0.22),transparent_45%),radial-gradient(circle_at_85%_5%,rgba(196,181,253,0.28),transparent_35%)]"
+        }`}
+      >
+      </div>
 
-        <button
-          type="button"
-          onClick={() => setMode(dark ? "light" : "dark")}
-          className={`absolute right-5 top-5 z-20 flex h-10 w-10 items-center justify-center rounded-md border ${
-            dark
-              ? "border-slate-300/40 bg-black/30 text-slate-100"
-              : "border-slate-700/30 bg-white/70 text-slate-900"
+      <section id="home" className="relative mx-auto w-full max-w-6xl px-4 pb-24 pt-6 md:px-8">
+        <div
+          className={`mb-10 flex items-center justify-between rounded-full border px-3 py-2 ${
+            isDark ? "border-violet-400/30 bg-[#120d1f]/92" : "border-violet-200 bg-white/90"
           }`}
-          aria-label="Toggle theme"
-          title={dark ? "Switch to light mode" : "Switch to dark mode"}
         >
-          {dark ? <Sun size={18} /> : <Moon size={18} />}
-        </button>
-
-        <div className="relative z-10 mx-auto flex h-full w-full max-w-6xl flex-col justify-center px-5 md:px-8">
-          <p className={`text-xs uppercase tracking-[0.2em] ${dark ? "text-cyan-300" : "text-cyan-700"}`}>
-            Tinder For Developers
-          </p>
-          <h1 className="mt-4 max-w-3xl text-5xl font-semibold leading-tight md:text-6xl">GitLove</h1>
-          <p className={`mt-4 max-w-2xl text-base md:text-lg ${dark ? "text-slate-200" : "text-slate-800"}`}>
-            Proof-of-work dating where every right swipe compiles into a real coding challenge before a match request
-            can be sent.
-          </p>
-
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link
-              href="/home"
-              className={`inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium ${
-                dark
-                  ? "border-cyan-300/60 bg-cyan-400/10 text-cyan-200"
-                  : "border-cyan-700/40 bg-cyan-600/10 text-cyan-900"
-              }`}
-            >
-              Enter App <ArrowRight size={16} />
-            </Link>
-            <Link
-              href="/stack-trace"
-              className={`rounded-md border px-4 py-2 text-sm ${
-                dark ? "border-slate-300/40 bg-black/20 text-slate-100" : "border-slate-900/20 bg-white/70"
-              }`}
-            >
-              View Live Trends
-            </Link>
+          <div className="flex items-center gap-2 px-2">
+            <Heart size={18} className="text-violet-500" />
+            <span className="text-sm font-semibold tracking-wide">GitLove</span>
           </div>
-
-          <div className={`mt-7 flex items-center gap-2 text-xs ${dark ? "text-slate-300" : "text-slate-700"}`}>
-            <Activity size={14} />
-            Dark and light mode included for both testing and demos
+          <nav className="flex items-center gap-1">
+            {navTabs.map((item, index) =>
+              item.href.startsWith("#") ? (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  className={`rounded-full px-4 py-1.5 text-sm ${
+                    index === 0
+                      ? "bg-violet-600 text-white"
+                      : isDark
+                        ? "text-white/85 hover:bg-white/10"
+                        : "text-violet-900 hover:bg-violet-50"
+                  }`}
+                >
+                  {item.label}
+                </a>
+              ) : (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className={`rounded-full px-4 py-1.5 text-sm ${
+                    index === 0
+                      ? "bg-violet-600 text-white"
+                      : isDark
+                        ? "text-white/85 hover:bg-white/10"
+                        : "text-violet-900 hover:bg-violet-50"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              )
+            )}
+          </nav>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsDark((prev) => !prev)}
+              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
+                isDark ? "border-violet-400/35 text-white" : "border-violet-200 text-violet-800"
+              }`}
+              aria-label="Toggle theme"
+            >
+              {isDark ? <Sun size={14} /> : <Moon size={14} />}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                login();
+                router.push("/home");
+              }}
+              className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-1.5 text-sm font-medium text-white"
+            >
+              <LogIn size={14} />
+              {isSignedIn ? "Open App" : "Log In"}
+            </button>
           </div>
         </div>
-      </section>
 
-      <section className="mx-auto w-full max-w-6xl px-5 py-12 md:px-8">
-        <div className="flex items-center gap-2">
-          <TerminalSquare size={18} className={dark ? "text-cyan-300" : "text-cyan-700"} />
-          <h2 className="text-xl font-semibold">Matching Protocol</h2>
-        </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-5">
-          {protocolItems.map((item, index) => (
-            <div
-              key={item.title}
-              className={`rounded-md border p-3 ${
-                dark ? "border-slate-800 bg-slate-900/70" : "border-slate-200 bg-white"
-              }`}
-            >
-              <div className={`text-xs ${dark ? "text-cyan-300" : "text-cyan-700"}`}>{String(index + 1).padStart(2, "0")}</div>
-              <div className="mt-1 text-sm font-semibold">{item.title}</div>
-              <p className={`mt-1 text-xs leading-5 ${dark ? "text-slate-300" : "text-slate-600"}`}>{item.description}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className={`border-y ${dark ? "border-slate-800 bg-slate-950" : "border-slate-200 bg-white"}`}>
-        <div className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-12 md:grid-cols-[1fr_280px] md:px-8">
+        <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
           <div>
-            <h2 className="text-2xl font-semibold">Built For Developer Culture</h2>
-            <p className={`mt-3 max-w-2xl text-sm leading-6 ${dark ? "text-slate-300" : "text-slate-600"}`}>
-              GitLove keeps matching high-friction and high-signal. Instead of low-effort swipes, every meaningful
-              connection is gated by logic, syntax, and one-attempt execution.
+            <p className={`mb-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ${isDark ? "bg-violet-500/20 text-violet-100" : "bg-violet-100 text-violet-900"}`}>
+              <Sparkles size={13} className="text-violet-500" />
+              Dating for developers who actually build
             </p>
+            <h1 className="text-4xl font-bold leading-tight md:text-6xl">
+              Match by vibe,
+              <br />
+              connect by code.
+            </h1>
+            <p className={`mt-4 max-w-xl text-base md:text-lg ${isDark ? "text-white/78" : "text-violet-900/70"}`}>
+              GitLove keeps it friendly and real: swipe profiles you like, then unlock the match by solving the same coding challenge together.
+            </p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  login();
+                  router.push("/home");
+                }}
+                className="rounded-full bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white"
+              >
+                Start Swiping
+              </button>
+              <a
+                href="#about"
+                className={`rounded-full border px-6 py-2.5 text-sm font-semibold ${
+                  isDark ? "border-violet-300/35 text-white/92" : "border-violet-200 text-violet-800"
+                }`}
+              >
+                How It Works
+              </a>
+            </div>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              <SignalCard dark={dark} icon={Heart} title="Proof of Work" text="Right swipe opens mandatory coding gate." />
-              <SignalCard dark={dark} icon={Code2} title="Monaco Flow" text="Challenge solving inside built-in IDE." />
-              <SignalCard dark={dark} icon={MessageSquareText} title="Dev Chat" text="Post-match markdown and code sharing." />
+            <div className="mt-10 grid max-w-xl grid-cols-3 gap-2 text-center text-sm">
+              <div className={`rounded-lg border p-3 ${isDark ? "border-violet-400/25 bg-white/5" : "border-violet-200 bg-violet-50/45"}`}>
+                <div className="text-xl font-bold">18k+</div>
+                <div className={isDark ? "text-white/70" : "text-violet-900/65"}>Active devs</div>
+              </div>
+              <div className={`rounded-lg border p-3 ${isDark ? "border-violet-400/25 bg-white/5" : "border-violet-200 bg-violet-50/45"}`}>
+                <div className="text-xl font-bold">92%</div>
+                <div className={isDark ? "text-white/70" : "text-violet-900/65"}>Reply rate</div>
+              </div>
+              <div className={`rounded-lg border p-3 ${isDark ? "border-violet-400/25 bg-white/5" : "border-violet-200 bg-violet-50/45"}`}>
+                <div className="text-xl font-bold">1.3M</div>
+                <div className={isDark ? "text-white/70" : "text-violet-900/65"}>Swipes</div>
+              </div>
             </div>
           </div>
 
-          <div className={`rounded-md border p-4 ${dark ? "border-slate-800 bg-slate-900/70" : "border-slate-200 bg-slate-50"}`}>
-            <div className="text-xs uppercase tracking-wider text-cyan-600">Mode</div>
-            <div className="mt-2 text-sm font-semibold">{dark ? "Dark / Matrix Style" : "Light / Clean Style"}</div>
-            <p className={`mt-2 text-xs leading-5 ${dark ? "text-slate-300" : "text-slate-600"}`}>
-              Toggle available at hero top-right for QA, demos, and visual checks.
-            </p>
+          <div className="relative mx-auto w-full max-w-[400px]">
+            <div
+              className={`relative overflow-hidden rounded-[28px] border p-4 shadow-[0_24px_60px_rgba(0,0,0,0.35)] ${
+                isDark ? "border-violet-400/35 bg-[#130d20]" : "border-violet-200 bg-white"
+              }`}
+            >
+              <div className="mb-3 flex items-center justify-between px-1">
+                <span className={`text-xs ${isDark ? "text-white/70" : "text-violet-900/60"}`}>Discover</span>
+                <span className="rounded-full bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white">For You</span>
+              </div>
+
+              <article className="relative h-[460px] overflow-hidden rounded-[18px]">
+                <img src={profile.image} alt={profile.name} className="h-full w-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                <div className="absolute bottom-4 left-4 right-4">
+                  <p className="text-2xl font-semibold text-white">{profile.name}</p>
+                  <p className="mt-1 text-sm text-white/85">{profile.role}</p>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {profile.tags.map((tag) => (
+                      <span key={tag} className="rounded-full bg-white/90 px-2 py-0.5 text-xs text-violet-900">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </article>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button type="button" className={`rounded-full border py-2.5 text-sm font-semibold ${isDark ? "border-violet-300/45 bg-violet-500/10 text-violet-100" : "border-violet-200 bg-violet-50 text-violet-800"}`}>
+                  Pass
+                </button>
+                <button type="button" className="rounded-full bg-violet-600 py-2.5 text-sm font-semibold text-white">
+                  Send Challenge
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-6xl px-5 py-12 md:px-8">
-        <h2 className="text-xl font-semibold">App Surfaces</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-5">
-          {pageItems.map((item) => (
-            <Link
-              key={item.title}
-              href={item.href}
-              className={`rounded-md border p-3 transition ${
-                dark
-                  ? "border-slate-800 bg-slate-900/60 hover:border-cyan-500/40"
-                  : "border-slate-200 bg-white hover:border-cyan-600/40"
-              }`}
-            >
-              <div className="text-sm font-semibold">{item.title}</div>
-              <p className={`mt-1 text-xs leading-5 ${dark ? "text-slate-300" : "text-slate-600"}`}>{item.description}</p>
-            </Link>
-          ))}
+      <section id="about" className={`relative border-y ${isDark ? "border-violet-400/20 bg-[#0f0b19]/92" : "border-violet-200 bg-violet-50/45"}`}>
+        <div className="mx-auto w-full max-w-6xl px-4 py-14 md:px-8">
+          <h2 className="text-3xl font-semibold">How GitLove Works</h2>
+          <p className={`mt-2 max-w-2xl ${isDark ? "text-white/70" : "text-violet-900/70"}`}>
+            Keep the spark, remove the noise. Friendly swipes first, then code challenge verification before a match goes live.
+          </p>
+          <div className="mt-8 grid gap-3 md:grid-cols-3">
+            {[
+              "Swipe right on a profile that feels like your type.",
+              "Solve one coding challenge inside the in-app editor.",
+              "If both pass the same challenge, chat unlocks instantly."
+            ].map((line, i) => (
+              <div
+                key={line}
+                className={`rounded-lg border p-4 text-sm ${
+                  isDark ? "border-violet-400/25 bg-white/5 text-white/85" : "border-violet-200 bg-white text-violet-900/85"
+                }`}
+              >
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-violet-600">Step {i + 1}</p>
+                {line}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
-    </div>
-  );
-}
 
-function SignalCard({
-  dark,
-  icon: Icon,
-  title,
-  text
-}: {
-  dark: boolean;
-  icon: typeof Heart;
-  title: string;
-  text: string;
-}) {
-  return (
-    <div className={`rounded-md border p-3 ${dark ? "border-slate-800 bg-slate-900/70" : "border-slate-200 bg-white"}`}>
-      <Icon size={16} className={dark ? "text-cyan-300" : "text-cyan-700"} />
-      <div className="mt-2 text-sm font-semibold">{title}</div>
-      <p className={`mt-1 text-xs leading-5 ${dark ? "text-slate-300" : "text-slate-600"}`}>{text}</p>
+      <section id="contact" className="relative mx-auto w-full max-w-6xl px-4 py-14 md:px-8">
+        <h3 className="text-2xl font-semibold">Contact</h3>
+        <p className={`mt-2 max-w-2xl text-sm ${isDark ? "text-white/72" : "text-violet-900/70"}`}>
+          Questions from your team? Reach out and we can share API contracts and integration notes for Home, Chat, Build Log, Stack Trace, and Profile.
+        </p>
+        <a
+          href="mailto:team@gitlove.app"
+          className="mt-5 inline-flex rounded-full bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white"
+        >
+          team@gitlove.app
+        </a>
+      </section>
     </div>
   );
 }

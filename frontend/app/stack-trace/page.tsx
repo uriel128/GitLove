@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { RequireAuth } from "@/components/require-auth";
 
 type StackTraceResponse = {
   totals: {
@@ -33,7 +34,8 @@ export default function StackTracePage() {
   const data = stackQuery.data;
 
   return (
-    <div className="space-y-4">
+    <RequireAuth>
+      <div className="space-y-4">
       <section className="rounded-md border border-line bg-panel p-4">
         <h1 className="text-lg font-semibold">Stack Trace / Global Trends</h1>
         <div className="mt-1 text-xs text-muted">Live refresh every 10 seconds</div>
@@ -104,7 +106,8 @@ export default function StackTracePage() {
           Waiting for stack trace metrics...
         </section>
       )}
-    </div>
+      </div>
+    </RequireAuth>
   );
 }
 

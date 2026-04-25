@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { ChallengeModal } from "@/components/challenge-modal";
+import { RequireAuth } from "@/components/require-auth";
 import { api } from "@/lib/api";
 import { InterestRequest, User } from "@/lib/types";
 
@@ -97,7 +98,8 @@ export default function HomePage() {
   }
 
   return (
-    <div className="space-y-6">
+    <RequireAuth>
+      <div className="space-y-6">
       <section className="grid gap-4 rounded-md border border-line bg-panel p-4 md:grid-cols-3">
         <div>
           <div className="text-xs text-muted">Backend Health</div>
@@ -207,7 +209,8 @@ export default function HomePage() {
           onClose={() => setActiveRequest(null)}
         />
       ) : null}
-    </div>
+      </div>
+    </RequireAuth>
   );
 }
 

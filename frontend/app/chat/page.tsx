@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { api } from "@/lib/api";
+import { RequireAuth } from "@/components/require-auth";
 import { ChatMessage, Match, User } from "@/lib/types";
 
 const socketBase = process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:4000";
@@ -117,7 +118,8 @@ export default function ChatPage() {
   );
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
+    <RequireAuth>
+      <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
       <section className="rounded-md border border-line bg-panel p-4">
         <h1 className="text-base font-semibold">Chat / Direct Connection</h1>
         <div className="mt-1 text-xs text-muted">Socket status: {socketState}</div>
@@ -197,6 +199,7 @@ export default function ChatPage() {
           </button>
         </div>
       </section>
-    </div>
+      </div>
+    </RequireAuth>
   );
 }

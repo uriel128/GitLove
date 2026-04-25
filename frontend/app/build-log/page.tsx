@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { RequireAuth } from "@/components/require-auth";
 import { User } from "@/lib/types";
 
 type BuildLogResponse = {
@@ -55,7 +56,8 @@ export default function BuildLogPage() {
   const data = buildLogQuery.data;
 
   return (
-    <div className="space-y-4">
+    <RequireAuth>
+      <div className="space-y-4">
       <section className="rounded-md border border-line bg-panel p-4">
         <h1 className="text-lg font-semibold">Build Log / Personal Dashboard</h1>
         <div className="mt-3 max-w-sm">
@@ -136,7 +138,8 @@ export default function BuildLogPage() {
           Select a user to load dashboard data.
         </section>
       )}
-    </div>
+      </div>
+    </RequireAuth>
   );
 }
 
