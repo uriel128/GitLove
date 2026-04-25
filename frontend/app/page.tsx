@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Heart, LogIn, Moon, Sparkles, Sun } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
@@ -13,40 +12,12 @@ const profiles = [
     tags: ["React", "TypeScript", "Coffee Dates"],
     image:
       "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80"
-  },
-  {
-    name: "Noah, 27",
-    role: "Backend Engineer",
-    tags: ["Node.js", "System Design", "Board Games"],
-    image:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=80"
-  },
-  {
-    name: "Maya, 24",
-    role: "ML Engineer",
-    tags: ["Python", "LeetCode", "Sunset Walks"],
-    image:
-      "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?auto=format&fit=crop&w=900&q=80"
   }
 ];
 
 export default function LandingPage() {
-  const router = useRouter();
-  const { isSignedIn, login } = useAuth();
+  const { isSignedIn } = useAuth();
   const [isDark, setIsDark] = useState(true);
-  const guestTabs = [
-    { label: "Home", href: "#home" },
-    { label: "About", href: "#about" },
-    { label: "Contact", href: "#contact" }
-  ];
-  const signedInTabs = [
-    { label: "Home", href: "/home" },
-    { label: "Chat", href: "/chat" },
-    { label: "Build Log", href: "/build-log" },
-    { label: "Stack Trace", href: "/stack-trace" },
-    { label: "Profile", href: "/profile" }
-  ];
-  const navTabs = isSignedIn ? signedInTabs : guestTabs;
   const profile = profiles[0];
 
   return (
@@ -61,8 +32,7 @@ export default function LandingPage() {
             ? "bg-[radial-gradient(circle_at_15%_0%,rgba(109,40,217,0.25),transparent_45%),radial-gradient(circle_at_90%_10%,rgba(139,92,246,0.18),transparent_40%)]"
             : "bg-[radial-gradient(circle_at_20%_0%,rgba(167,139,250,0.22),transparent_45%),radial-gradient(circle_at_85%_5%,rgba(196,181,253,0.28),transparent_35%)]"
         }`}
-      >
-      </div>
+      />
 
       <section id="home" className="relative mx-auto w-full max-w-6xl px-4 pb-24 pt-6 md:px-8">
         <div
@@ -75,37 +45,28 @@ export default function LandingPage() {
             <span className="text-sm font-semibold tracking-wide">GitLove</span>
           </div>
           <nav className="flex items-center gap-1">
-            {navTabs.map((item, index) =>
-              item.href.startsWith("#") ? (
-                <a
-                  key={item.label}
-                  href={item.href}
-                  className={`rounded-full px-4 py-1.5 text-sm ${
-                    index === 0
-                      ? "bg-violet-600 text-white"
-                      : isDark
-                        ? "text-white/85 hover:bg-white/10"
-                        : "text-violet-900 hover:bg-violet-50"
-                  }`}
-                >
-                  {item.label}
-                </a>
-              ) : (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className={`rounded-full px-4 py-1.5 text-sm ${
-                    index === 0
-                      ? "bg-violet-600 text-white"
-                      : isDark
-                        ? "text-white/85 hover:bg-white/10"
-                        : "text-violet-900 hover:bg-violet-50"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              )
-            )}
+            <a
+              href="#home"
+              className="rounded-full bg-violet-600 px-4 py-1.5 text-sm text-white"
+            >
+              Home
+            </a>
+            <a
+              href="#about"
+              className={`rounded-full px-4 py-1.5 text-sm ${
+                isDark ? "text-white/85 hover:bg-white/10" : "text-violet-900 hover:bg-violet-50"
+              }`}
+            >
+              About
+            </a>
+            <a
+              href="#contact"
+              className={`rounded-full px-4 py-1.5 text-sm ${
+                isDark ? "text-white/85 hover:bg-white/10" : "text-violet-900 hover:bg-violet-50"
+              }`}
+            >
+              Contact
+            </a>
           </nav>
           <div className="flex items-center gap-2">
             <button
@@ -118,23 +79,23 @@ export default function LandingPage() {
             >
               {isDark ? <Sun size={14} /> : <Moon size={14} />}
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                login();
-                router.push("/home");
-              }}
+            <Link
+              href="/login"
               className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-1.5 text-sm font-medium text-white"
             >
               <LogIn size={14} />
-              {isSignedIn ? "Open App" : "Log In"}
-            </button>
+              Login
+            </Link>
           </div>
         </div>
 
         <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
           <div>
-            <p className={`mb-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ${isDark ? "bg-violet-500/20 text-violet-100" : "bg-violet-100 text-violet-900"}`}>
+            <p
+              className={`mb-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ${
+                isDark ? "bg-violet-500/20 text-violet-100" : "bg-violet-100 text-violet-900"
+              }`}
+            >
               <Sparkles size={13} className="text-violet-500" />
               Dating for developers who actually build
             </p>
@@ -143,20 +104,20 @@ export default function LandingPage() {
               <br />
               connect by code.
             </h1>
-            <p className={`mt-4 max-w-xl text-base md:text-lg ${isDark ? "text-white/78" : "text-violet-900/70"}`}>
-              GitLove keeps it friendly and real: swipe profiles you like, then unlock the match by solving the same coding challenge together.
+            <p
+              className={`mt-4 max-w-xl text-base md:text-lg ${
+                isDark ? "text-white/78" : "text-violet-900/70"
+              }`}
+            >
+              Log in with Firebase, create your account, then enter the GitLove app with a synced backend user profile.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  login();
-                  router.push("/home");
-                }}
+              <Link
+                href="/login"
                 className="rounded-full bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white"
               >
-                Start Swiping
-              </button>
+                Login
+              </Link>
               <a
                 href="#about"
                 className={`rounded-full border px-6 py-2.5 text-sm font-semibold ${
@@ -167,20 +128,27 @@ export default function LandingPage() {
               </a>
             </div>
 
-            <div className="mt-10 grid max-w-xl grid-cols-3 gap-2 text-center text-sm">
-              <div className={`rounded-lg border p-3 ${isDark ? "border-violet-400/25 bg-white/5" : "border-violet-200 bg-violet-50/45"}`}>
-                <div className="text-xl font-bold">18k+</div>
-                <div className={isDark ? "text-white/70" : "text-violet-900/65"}>Active devs</div>
+            <section
+              className={`mt-8 max-w-xl rounded-[24px] border p-5 ${
+                isDark ? "border-violet-400/25 bg-white/5" : "border-violet-200 bg-white/80"
+              }`}
+            >
+              <h2 className="text-lg font-semibold">Authentication Splash</h2>
+              <p className={`mt-2 text-sm ${isDark ? "text-white/72" : "text-violet-900/70"}`}>
+                The `Login` button now routes to a dedicated splash page where users can sign in with Firebase or create a Firebase account before opening the app.
+              </p>
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <div className={`rounded-2xl border p-4 text-sm ${isDark ? "border-violet-400/20 bg-black/20" : "border-violet-200 bg-violet-50/60"}`}>
+                  Firebase email/password auth
+                </div>
+                <div className={`rounded-2xl border p-4 text-sm ${isDark ? "border-violet-400/20 bg-black/20" : "border-violet-200 bg-violet-50/60"}`}>
+                  Backend sync via `/api/auth/sync`
+                </div>
+                <div className={`rounded-2xl border p-4 text-sm ${isDark ? "border-violet-400/20 bg-black/20" : "border-violet-200 bg-violet-50/60"}`}>
+                  App opens only after a real session exists
+                </div>
               </div>
-              <div className={`rounded-lg border p-3 ${isDark ? "border-violet-400/25 bg-white/5" : "border-violet-200 bg-violet-50/45"}`}>
-                <div className="text-xl font-bold">92%</div>
-                <div className={isDark ? "text-white/70" : "text-violet-900/65"}>Reply rate</div>
-              </div>
-              <div className={`rounded-lg border p-3 ${isDark ? "border-violet-400/25 bg-white/5" : "border-violet-200 bg-violet-50/45"}`}>
-                <div className="text-xl font-bold">1.3M</div>
-                <div className={isDark ? "text-white/70" : "text-violet-900/65"}>Swipes</div>
-              </div>
-            </div>
+            </section>
           </div>
 
           <div className="relative mx-auto w-full max-w-[400px]">
@@ -209,15 +177,6 @@ export default function LandingPage() {
                   </div>
                 </div>
               </article>
-
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <button type="button" className={`rounded-full border py-2.5 text-sm font-semibold ${isDark ? "border-violet-300/45 bg-violet-500/10 text-violet-100" : "border-violet-200 bg-violet-50 text-violet-800"}`}>
-                  Pass
-                </button>
-                <button type="button" className="rounded-full bg-violet-600 py-2.5 text-sm font-semibold text-white">
-                  Send Challenge
-                </button>
-              </div>
             </div>
           </div>
         </div>
@@ -227,32 +186,15 @@ export default function LandingPage() {
         <div className="mx-auto w-full max-w-6xl px-4 py-14 md:px-8">
           <h2 className="text-3xl font-semibold">How GitLove Works</h2>
           <p className={`mt-2 max-w-2xl ${isDark ? "text-white/70" : "text-violet-900/70"}`}>
-            Keep the spark, remove the noise. Friendly swipes first, then code challenge verification before a match goes live.
+            Keep the spark, remove the noise. Authenticate first, then move into the coding challenge and match flow.
           </p>
-          <div className="mt-8 grid gap-3 md:grid-cols-3">
-            {[
-              "Swipe right on a profile that feels like your type.",
-              "Solve one coding challenge inside the in-app editor.",
-              "If both pass the same challenge, chat unlocks instantly."
-            ].map((line, i) => (
-              <div
-                key={line}
-                className={`rounded-lg border p-4 text-sm ${
-                  isDark ? "border-violet-400/25 bg-white/5 text-white/85" : "border-violet-200 bg-white text-violet-900/85"
-                }`}
-              >
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-violet-600">Step {i + 1}</p>
-                {line}
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
       <section id="contact" className="relative mx-auto w-full max-w-6xl px-4 py-14 md:px-8">
         <h3 className="text-2xl font-semibold">Contact</h3>
         <p className={`mt-2 max-w-2xl text-sm ${isDark ? "text-white/72" : "text-violet-900/70"}`}>
-          Questions from your team? Reach out and we can share API contracts and integration notes for Home, Chat, Build Log, Stack Trace, and Profile.
+          Questions from your team? Reach out and we can share API contracts and integration notes for Firebase auth and the GitLove app shell.
         </p>
         <a
           href="mailto:team@gitlove.app"

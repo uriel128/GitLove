@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { RequireAuth } from "@/components/require-auth";
+import { useAuth } from "@/lib/auth";
 import { User } from "@/lib/types";
 
 type ProfileForm = {
@@ -40,7 +41,7 @@ const initialForm: ProfileForm = {
 
 export default function ProfilePage() {
   const queryClient = useQueryClient();
-  const [userId, setUserId] = useState("");
+  const { currentUserId } = useAuth();
   const [form, setForm] = useState<ProfileForm>(initialForm);
   const [status, setStatus] = useState("No changes");
 
@@ -48,17 +49,12 @@ export default function ProfilePage() {
     queryKey: ["users"],
     queryFn: () => api.get<User[]>("/users")
   });
-
-  useEffect(() => {
-    if (!userId && (usersQuery.data ?? []).length > 0) {
-      setUserId(usersQuery.data![0].id);
-    }
-  }, [userId, usersQuery.data]);
+  const currentUser = (usersQuery.data ?? []).find((user) => user.id === currentUserId) ?? null;
 
   const userQuery = useQuery({
-    queryKey: ["user", userId],
-    queryFn: () => api.get<User>(`/users/${userId}`),
-    enabled: Boolean(userId)
+    queryKey: ["user", currentUserId],
+    queryFn: () => api.get<User>(`/users/${currentUserId}`),
+    enabled: Boolean(currentUserId)
   });
 
   useEffect(() => {
@@ -91,7 +87,11 @@ export default function ProfilePage() {
         .filter(Boolean)
         .slice(0, 3);
 
-      return api.patch(`/users/${userId}/profile`, {
+      if (!currentUserId) {
+        throw new Error("No signed-in user");
+      }
+
+      return api.patch(`/users/${currentUserId}/profile`, {
         name: form.name,
         occupation: nullable(form.occupation),
         age: form.age ? Number(form.age) : null,
@@ -110,7 +110,7 @@ export default function ProfilePage() {
     onSuccess: () => {
       setStatus("Profile saved");
       void queryClient.invalidateQueries({ queryKey: ["users"] });
-      void queryClient.invalidateQueries({ queryKey: ["user", userId] });
+      void queryClient.invalidateQueries({ queryKey: ["user", currentUserId] });
     },
     onError: (error) => {
       setStatus(`Save failed: ${error.message}`);
@@ -124,18 +124,10 @@ export default function ProfilePage() {
         <h1 className="text-lg font-semibold">User Profile / Config File</h1>
         <div className="mt-3 grid gap-3 md:grid-cols-[260px_1fr]">
           <div>
-            <label className="text-xs text-muted">User</label>
-            <select
-              value={userId}
-              onChange={(event) => setUserId(event.target.value)}
-              className="mt-1 w-full rounded-md border border-line bg-panelAlt px-3 py-2 text-sm"
-            >
-              {(usersQuery.data ?? []).map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.name}
-                </option>
-              ))}
-            </select>
+            <label className="text-xs text-muted">Signed-In User</label>
+            <div className="mt-1 rounded-md border border-line bg-panelAlt px-3 py-2 text-sm">
+              {currentUser ? `${currentUser.name} (${currentUser.email})` : "Signed-in account not found"}
+            </div>
             <div className="mt-2 text-xs text-muted">{status}</div>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
@@ -214,7 +206,7 @@ export default function ProfilePage() {
         <button
           type="button"
           onClick={() => saveMutation.mutate()}
-          disabled={!userId || saveMutation.isPending}
+          disabled={!currentUserId || saveMutation.isPending}
           className="mt-4 rounded-md border border-accent/60 bg-accent/10 px-4 py-2 text-sm text-accent disabled:opacity-50"
         >
           Save Profile

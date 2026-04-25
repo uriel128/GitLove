@@ -1,6 +1,11 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { ChallengeDifficulty, Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+
+type CreateUserInput = {
+  name: string;
+  email: string;
+};
 
 type UpdateProfileInput = {
   name?: string;
@@ -21,6 +26,40 @@ type UpdateProfileInput = {
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async createUser(input: CreateUserInput) {
+    const email = input.email.trim().toLowerCase();
+    const name = input.name.trim();
+
+    try {
+      const created = await this.prisma.user.create({
+        data: {
+          email,
+          name
+        },
+        include: { profile: true }
+      });
+
+      return {
+        ...created,
+        profile: created.profile
+          ? {
+              ...created.profile,
+              hobbies: normalizeHobbies(created.profile.hobbies)
+            }
+          : null
+      };
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        throw new ConflictException("A user with that email already exists");
+      }
+
+      throw error;
+    }
+  }
 
   async listUsers() {
     const users = await this.prisma.user.findMany({

@@ -1,9 +1,15 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
 import { ChallengeDifficulty } from "@prisma/client";
 import { z } from "zod";
 import { UsersService } from "./users.service";
 
 const nullableString = z.union([z.string().min(1), z.null()]);
+const createUserSchema = z
+  .object({
+    name: z.string().trim().min(1).max(80),
+    email: z.string().trim().email().max(160)
+  })
+  .strict();
 
 const updateProfileSchema = z
   .object({
@@ -26,6 +32,15 @@ const updateProfileSchema = z
 @Controller("users")
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @Post()
+  createUser(@Body() body: unknown) {
+    const parsed = createUserSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException("Invalid user payload");
+    }
+    return this.usersService.createUser(parsed.data);
+  }
 
   @Get()
   listUsers() {

@@ -5,36 +5,25 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { api } from "@/lib/api";
 import { RequireAuth } from "@/components/require-auth";
-import { ChatMessage, Match, User } from "@/lib/types";
+import { useAuth } from "@/lib/auth";
+import { ChatMessage, Match } from "@/lib/types";
 
 const socketBase = process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:4000";
 const chatNamespace = process.env.NEXT_PUBLIC_CHAT_NAMESPACE ?? "/chat";
 
 export default function ChatPage() {
   const queryClient = useQueryClient();
-  const [userId, setUserId] = useState("");
+  const { currentUserId } = useAuth();
   const [matchId, setMatchId] = useState("");
   const [content, setContent] = useState("");
   const [format, setFormat] = useState<"MARKDOWN" | "CODE" | "TEXT">("MARKDOWN");
   const [socketState, setSocketState] = useState("disconnected");
   const socketRef = useRef<Socket | null>(null);
 
-  const usersQuery = useQuery({
-    queryKey: ["users"],
-    queryFn: () => api.get<User[]>("/users")
-  });
-
-  useEffect(() => {
-    const users = usersQuery.data ?? [];
-    if (!userId && users.length > 0) {
-      setUserId(users[0].id);
-    }
-  }, [usersQuery.data, userId]);
-
   const matchesQuery = useQuery({
-    queryKey: ["matches", userId],
-    queryFn: () => api.get<Match[]>(`/matches/${userId}`),
-    enabled: Boolean(userId)
+    queryKey: ["matches", currentUserId],
+    queryFn: () => api.get<Match[]>(`/matches/${currentUserId}`),
+    enabled: Boolean(currentUserId)
   });
 
   useEffect(() => {
@@ -49,18 +38,18 @@ export default function ChatPage() {
   }, [matchesQuery.data, matchId]);
 
   const messagesQuery = useQuery({
-    queryKey: ["messages", matchId, userId],
-    queryFn: () => api.get<ChatMessage[]>(`/chat/${matchId}/messages?userId=${userId}&limit=80`),
-    enabled: Boolean(matchId && userId)
+    queryKey: ["messages", matchId, currentUserId],
+    queryFn: () => api.get<ChatMessage[]>(`/chat/${matchId}/messages?userId=${currentUserId}&limit=80`),
+    enabled: Boolean(matchId && currentUserId)
   });
 
   useEffect(() => {
-    if (!userId || !matchId) {
+    if (!currentUserId || !matchId) {
       return;
     }
 
     const socket: Socket = io(`${socketBase}${chatNamespace}`, {
-      auth: { userId }
+      auth: { userId: currentUserId }
     });
     socketRef.current = socket;
 
@@ -70,7 +59,7 @@ export default function ChatPage() {
     });
     socket.on("disconnect", () => setSocketState("disconnected"));
     socket.on("new_message", () => {
-      void queryClient.invalidateQueries({ queryKey: ["messages", matchId, userId] });
+      void queryClient.invalidateQueries({ queryKey: ["messages", matchId, currentUserId] });
       void queryClient.invalidateQueries({ queryKey: ["stack-trace"] });
     });
 
@@ -78,7 +67,7 @@ export default function ChatPage() {
       socketRef.current = null;
       socket.disconnect();
     };
-  }, [userId, matchId, queryClient]);
+  }, [currentUserId, matchId, queryClient]);
 
   const sendMutation = useMutation({
     mutationFn: async () => {
@@ -123,19 +112,6 @@ export default function ChatPage() {
       <section className="rounded-md border border-line bg-panel p-4">
         <h1 className="text-base font-semibold">Chat / Direct Connection</h1>
         <div className="mt-1 text-xs text-muted">Socket status: {socketState}</div>
-
-        <label className="mt-4 block text-xs text-muted">Active User</label>
-        <select
-          value={userId}
-          onChange={(event) => setUserId(event.target.value)}
-          className="mt-1 w-full rounded-md border border-line bg-panelAlt px-3 py-2 text-sm"
-        >
-          {(usersQuery.data ?? []).map((user) => (
-            <option key={user.id} value={user.id}>
-              {user.name}
-            </option>
-          ))}
-        </select>
 
         <label className="mt-4 block text-xs text-muted">Match</label>
         <select

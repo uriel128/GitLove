@@ -23,7 +23,7 @@ const guestItems = [
 export function TopNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const { isSignedIn, login, logout } = useAuth();
+  const { isSignedIn, logout } = useAuth();
   const navItems = isSignedIn ? signedInItems : guestItems;
   const isLanding = pathname === "/";
   const isGuestLanding = !isSignedIn && isLanding;
@@ -67,8 +67,7 @@ export function TopNav() {
             <button
               type="button"
               onClick={() => {
-                login();
-                router.push("/home");
+                router.push("/login");
               }}
               className={clsx(
                 "rounded-full border px-4 py-1.5 text-sm",
@@ -77,7 +76,7 @@ export function TopNav() {
                   : "border-accent/60 bg-accent/10 text-accent"
               )}
             >
-              Log In
+              Login
             </button>
           ) : (
             <button

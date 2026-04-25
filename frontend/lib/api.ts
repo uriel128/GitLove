@@ -3,13 +3,15 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 type RequestOptions = {
   method?: "GET" | "POST" | "PATCH";
   body?: unknown;
+  headers?: HeadersInit;
 };
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     method: options.method ?? "GET",
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      ...options.headers
     },
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
     cache: "no-store"

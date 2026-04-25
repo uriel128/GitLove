@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { RequireAuth } from "@/components/require-auth";
+import { useAuth } from "@/lib/auth";
 import { User } from "@/lib/types";
 
 type BuildLogResponse = {
@@ -34,23 +34,18 @@ type BuildLogResponse = {
 };
 
 export default function BuildLogPage() {
-  const [userId, setUserId] = useState("");
+  const { currentUserId } = useAuth();
 
   const usersQuery = useQuery({
     queryKey: ["users"],
     queryFn: () => api.get<User[]>("/users")
   });
-
-  useEffect(() => {
-    if (!userId && (usersQuery.data ?? []).length > 0) {
-      setUserId(usersQuery.data![0].id);
-    }
-  }, [userId, usersQuery.data]);
+  const currentUser = (usersQuery.data ?? []).find((user) => user.id === currentUserId) ?? null;
 
   const buildLogQuery = useQuery({
-    queryKey: ["build-log", userId],
-    queryFn: () => api.get<BuildLogResponse>(`/build-log/${userId}`),
-    enabled: Boolean(userId)
+    queryKey: ["build-log", currentUserId],
+    queryFn: () => api.get<BuildLogResponse>(`/build-log/${currentUserId}`),
+    enabled: Boolean(currentUserId)
   });
 
   const data = buildLogQuery.data;
@@ -61,18 +56,10 @@ export default function BuildLogPage() {
       <section className="rounded-md border border-line bg-panel p-4">
         <h1 className="text-lg font-semibold">Build Log / Personal Dashboard</h1>
         <div className="mt-3 max-w-sm">
-          <label className="text-xs text-muted">User</label>
-          <select
-            value={userId}
-            onChange={(event) => setUserId(event.target.value)}
-            className="mt-1 w-full rounded-md border border-line bg-panelAlt px-3 py-2 text-sm"
-          >
-            {(usersQuery.data ?? []).map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.name}
-              </option>
-            ))}
-          </select>
+          <label className="text-xs text-muted">Signed-In User</label>
+          <div className="mt-1 rounded-md border border-line bg-panelAlt px-3 py-2 text-sm">
+            {currentUser ? `${currentUser.name} (${currentUser.email})` : "Signed-in account not found"}
+          </div>
         </div>
       </section>
 
@@ -135,7 +122,7 @@ export default function BuildLogPage() {
         </>
       ) : (
         <section className="rounded-md border border-line bg-panel p-4 text-sm text-muted">
-          Select a user to load dashboard data.
+          Waiting for signed-in account data.
         </section>
       )}
       </div>

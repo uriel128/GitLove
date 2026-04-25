@@ -1,15 +1,16 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ChallengeModal } from "@/components/challenge-modal";
 import { RequireAuth } from "@/components/require-auth";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { InterestRequest, User } from "@/lib/types";
 
 export default function HomePage() {
   const queryClient = useQueryClient();
-  const [viewerId, setViewerId] = useState("");
+  const { currentUserId } = useAuth();
   const [cursor, setCursor] = useState(0);
   const [activeRequest, setActiveRequest] = useState<InterestRequest | null>(null);
   const [terminalLog, setTerminalLog] = useState("SYSTEM READY");
@@ -26,24 +27,17 @@ export default function HomePage() {
   });
 
   const users = usersQuery.data ?? [];
-  const viewer = users.find((user) => user.id === viewerId) ?? null;
-  const candidates = useMemo(() => users.filter((user) => user.id !== viewerId), [users, viewerId]);
+  const viewer = users.find((user) => user.id === currentUserId) ?? null;
+  const candidates = useMemo(
+    () => users.filter((user) => user.id !== currentUserId),
+    [currentUserId, users]
+  );
   const candidate = candidates.length > 0 ? candidates[cursor % candidates.length] : null;
-
-  useEffect(() => {
-    if (!viewerId && users.length > 0) {
-      setViewerId(users[0].id);
-    }
-  }, [users, viewerId]);
-
-  useEffect(() => {
-    setCursor(0);
-  }, [viewerId]);
 
   const openMutation = useMutation({
     mutationFn: async (targetId: string) =>
       api.post<InterestRequest>("/interest/open", {
-        challengerId: viewerId,
+        challengerId: currentUserId,
         targetId
       }),
     onSuccess: (request) => {
@@ -55,7 +49,7 @@ export default function HomePage() {
   const attemptMutation = useMutation({
     mutationFn: async (input: { requestId: string; passed: boolean; submittedCode: string }) =>
       api.post<InterestRequest>(`/interest/${input.requestId}/attempt`, {
-        userId: viewerId,
+        userId: currentUserId,
         passed: input.passed,
         submittedCode: input.submittedCode
       }),
@@ -75,7 +69,7 @@ export default function HomePage() {
 
   const cancelMutation = useMutation({
     mutationFn: async (requestId: string) =>
-      api.post(`/interest/${requestId}/cancel`, { challengerId: viewerId }),
+      api.post(`/interest/${requestId}/cancel`, { challengerId: currentUserId }),
     onSuccess: () => {
       setTerminalLog("CHALLENGE ABANDONED");
       setActiveRequest(null);
@@ -109,17 +103,9 @@ export default function HomePage() {
         </div>
         <div>
           <div className="text-xs text-muted">Current User</div>
-          <select
-            value={viewerId}
-            onChange={(event) => setViewerId(event.target.value)}
-            className="mt-1 w-full rounded-md border border-line bg-panelAlt px-3 py-2 text-sm"
-          >
-            {users.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.name} ({user.email})
-              </option>
-            ))}
-          </select>
+          <div className="mt-1 rounded-md border border-line bg-panelAlt px-3 py-2 text-sm">
+            {viewer ? `${viewer.name} (${viewer.email})` : "Signed-in account not found"}
+          </div>
         </div>
         <div>
           <div className="text-xs text-muted">Terminal Log</div>
@@ -170,7 +156,7 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={swipeRight}
-                disabled={openMutation.isPending || !viewerId}
+                disabled={openMutation.isPending || !currentUserId}
                 className="rounded-md border border-accent/60 bg-accent/10 px-3 py-2 text-sm text-accent disabled:opacity-50"
               >
                 Swipe Right
