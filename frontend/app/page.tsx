@@ -15,7 +15,7 @@ export default function HomePage() {
 
   const healthQuery = useQuery({
     queryKey: ["health"],
-    queryFn: () => api.get<{ status: string; services: { db: string; cache: string } }>("/health"),
+    queryFn: () => api.get<{ status: string; services: { db: string } }>("/health"),
     refetchInterval: 15_000
   });
 

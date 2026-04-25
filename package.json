@@ -11,8 +11,6 @@
     "dev:backend": "npm run dev --workspace backend",
     "dev:frontend": "npm run dev --workspace frontend",
     "typecheck": "npm run typecheck --workspace backend && npm run typecheck --workspace frontend",
-    "db:up": "npm run db:up --workspace backend",
-    "db:down": "npm run db:down --workspace backend",
     "db:push": "npm run prisma:push --workspace backend",
     "seed": "npm run seed --workspace backend"
   },

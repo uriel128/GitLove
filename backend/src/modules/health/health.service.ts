@@ -1,13 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { RedisService } from "../redis/redis.service";
 
 @Injectable()
 export class HealthService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly redisService: RedisService
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async getHealth() {
     let db: "up" | "down" = "down";
@@ -18,12 +14,11 @@ export class HealthService {
       db = "down";
     }
 
-    const cache = await this.redisService.ping();
-    const status = db === "up" && (cache === "up" || cache === "disabled") ? "ok" : "degraded";
+    const status = db === "up" ? "ok" : "degraded";
 
     return {
       status,
-      services: { db, cache },
+      services: { db },
       timestamp: new Date().toISOString()
     };
   }

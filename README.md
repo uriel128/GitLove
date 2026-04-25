@@ -1,7 +1,7 @@
 # GitLove Localhost Setup
 
 This repo now runs both:
-- `backend` (NestJS + Prisma + Supabase/PostgreSQL + Redis + Socket.IO)
+- `backend` (NestJS + Prisma + Supabase/PostgreSQL + Socket.IO)
 - `frontend` (Next.js + Tailwind + TanStack Query + Monaco)
 
 ## 1) Install once
@@ -13,23 +13,13 @@ cp backend/.env.example backend/.env
 cp frontend/.env.local.example frontend/.env.local
 ```
 
-## 2) Start database services
-
-If you are using Supabase:
+## 2) Configure Supabase
 
 - put your Supabase Postgres URL in `backend/.env` as `DATABASE_URL`
 - set `SUPABASE_URL` + `SUPABASE_ANON_KEY` (or service role key)
 - then run:
 
 ```bash
-npm run db:push
-npm run seed
-```
-
-If you are using local Docker Postgres/Redis instead:
-
-```bash
-npm run db:up
 npm run db:push
 npm run seed
 ```
@@ -52,5 +42,4 @@ Local URLs:
 npm run dev:backend
 npm run dev:frontend
 npm run typecheck
-npm run db:down
 ```

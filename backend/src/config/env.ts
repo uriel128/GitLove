@@ -8,7 +8,6 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_ANON_KEY: z.string().min(1).optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
-  REDIS_URL: z.string().min(1).optional(),
   CHAT_NAMESPACE: z.string().default("/chat")
 });
 

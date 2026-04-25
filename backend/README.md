@@ -1,8 +1,7 @@
 # GitLove Backend (Local Dev)
 
 NestJS + TypeScript backend starter for GitLove with:
-- PostgreSQL (Supabase or local Docker)
-- Redis (Docker)
+- PostgreSQL (Supabase)
 - Prisma ORM
 - Supabase Auth support
 - HTTP APIs for health/challenges/interest/matches/chat history
@@ -18,17 +17,9 @@ npm run prisma:generate
 npm run dev
 ```
 
-If you are using Supabase, set `DATABASE_URL`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`) in `.env`, then run:
+Set `DATABASE_URL`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`) in `.env`, then run:
 
 ```bash
-npm run prisma:push
-npm run seed
-```
-
-If you are using local Postgres/Redis instead:
-
-```bash
-npm run db:up
 npm run prisma:push
 npm run seed
 ```
