@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Heart, LogIn, Moon, Sparkles, Sun } from "lucide-react";
+import { LogIn, Moon, Sparkles, Sun } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
+import iconImage from "./icon.png";
 
 const profiles = [
   {
@@ -71,7 +73,7 @@ export default function LandingPage() {
           }`}
         >
           <div className="flex items-center gap-2 px-2">
-            <Heart size={18} className="text-violet-500" />
+            <Image src={iconImage} alt="GitLove logo" width={18} height={18} className="h-[18px] w-[18px]" />
             <span className="text-sm font-semibold tracking-wide">GitLove</span>
           </div>
           <nav className="flex items-center gap-1">
