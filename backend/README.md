@@ -75,3 +75,19 @@ Response includes `appUser` (GitLove internal user record). Existing endpoints c
 - `carol@gitlove.dev`
 
 The seed script creates profiles and challenge records to test the matching flow quickly.
+
+## 6) Railway deploy (backend)
+
+Railway config is at repo root in `railway.toml`.
+
+Required Railway env vars:
+- `NODE_ENV=production`
+- `CORS_ORIGIN=<your Vercel frontend URL>`
+- `DATABASE_URL=file:./dev.db`
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_CLIENT_EMAIL`
+- `FIREBASE_PRIVATE_KEY`
+- `CHAT_NAMESPACE=/chat`
+
+Health check after deploy:
+- `GET https://<railway-backend-domain>/api/health`

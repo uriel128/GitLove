@@ -17,7 +17,7 @@ async function bootstrap() {
   await app.listen(env.PORT);
 
   const logger = new Logger("Bootstrap");
-  logger.log(`GitLove backend running on http://localhost:${env.PORT}/api`);
+  logger.log(`GitLove backend running on port ${env.PORT}`);
 }
 
 bootstrap();
