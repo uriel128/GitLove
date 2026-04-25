@@ -4,10 +4,11 @@
 
 ```bash
 cd frontend
-cp .env.local.example .env.local
 npm install
 npm run dev
 ```
+
+`frontend/.env.local` is versioned in the repo.
 
 Default local URL:
 - `http://localhost:3000`

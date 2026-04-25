@@ -11,13 +11,12 @@ NestJS + TypeScript backend starter for GitLove with:
 
 ```bash
 cd backend
-cp .env.example .env
 npm install
 npm run prisma:generate
 npm run dev
 ```
 
-Set `DATABASE_URL` (default: `file:./dev.db`), `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and `FIREBASE_PRIVATE_KEY` in `.env`, then run:
+`backend/.env` is versioned in the repo. Ensure it has `DATABASE_URL` (default: `file:./dev.db`), `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and `FIREBASE_PRIVATE_KEY`, then run:
 
 ```bash
 npm run prisma:push

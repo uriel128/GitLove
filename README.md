@@ -9,9 +9,11 @@ This repo now runs both:
 ```bash
 cd ~/GitLove
 npm install
-cp backend/.env.example backend/.env
-cp frontend/.env.local.example frontend/.env.local
 ```
+
+Environment files are versioned in this repo:
+- `backend/.env`
+- `frontend/.env.local`
 
 ## 2) Configure Firebase + DB
 

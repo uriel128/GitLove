@@ -1,6 +1,7 @@
 import "./globals.css";
 import { ReactNode } from "react";
 import { Providers } from "./providers";
+import { MainShell } from "@/components/main-shell";
 import { TopNav } from "@/components/top-nav";
 
 export const metadata = {
@@ -15,7 +16,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <Providers>
           <div className="min-h-screen bg-bg text-text">
             <TopNav />
-            <main className="mx-auto w-full max-w-7xl px-4 py-6 md:px-6">{children}</main>
+            <MainShell>{children}</MainShell>
           </div>
         </Providers>
       </body>
