@@ -1,7 +1,7 @@
 # GitLove Localhost Setup
 
 This repo now runs both:
-- `backend` (NestJS + Prisma + Firebase Auth + PostgreSQL + Socket.IO)
+- `backend` (NestJS + Prisma + Firebase Auth + SQLite + Socket.IO)
 - `frontend` (Next.js + Tailwind + TanStack Query + Monaco)
 
 ## 1) Install once
@@ -15,7 +15,7 @@ cp frontend/.env.local.example frontend/.env.local
 
 ## 2) Configure Firebase + DB
 
-- put your Postgres URL in `backend/.env` as `DATABASE_URL`
+- use SQLite URL in `backend/.env` as `DATABASE_URL` (default: `file:./dev.db`)
 - set Firebase Admin vars in `backend/.env`:
   - `FIREBASE_PROJECT_ID`
   - `FIREBASE_CLIENT_EMAIL`

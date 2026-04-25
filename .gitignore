@@ -10,3 +10,5 @@ frontend/.env.local
 backend/.env
 *.tsbuildinfo
 npm-debug.log*
+backend/prisma/*.db
+backend/prisma/*.db-*

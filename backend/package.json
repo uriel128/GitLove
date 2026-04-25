@@ -2,7 +2,7 @@
   "name": "gitlove-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "GitLove backend starter (NestJS + TypeScript + Firebase Auth + PostgreSQL + WebSockets)",
+  "description": "GitLove backend starter (NestJS + TypeScript + Firebase Auth + SQLite + WebSockets)",
   "scripts": {
     "dev": "npm run build && node dist/main.js",
     "build": "tsc -p tsconfig.json",

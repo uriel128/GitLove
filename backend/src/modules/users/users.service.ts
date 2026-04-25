@@ -23,7 +23,7 @@ export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async listUsers() {
-    return this.prisma.user.findMany({
+    const users = await this.prisma.user.findMany({
       orderBy: { createdAt: "asc" },
       select: {
         id: true,
@@ -48,6 +48,16 @@ export class UsersService {
         }
       }
     });
+
+    return users.map((user) => ({
+      ...user,
+      profile: user.profile
+        ? {
+            ...user.profile,
+            hobbies: normalizeHobbies(user.profile.hobbies)
+          }
+        : null
+    }));
   }
 
   async getUser(userId: string) {
@@ -58,7 +68,15 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException("User not found");
     }
-    return user;
+    return {
+      ...user,
+      profile: user.profile
+        ? {
+            ...user.profile,
+            hobbies: normalizeHobbies(user.profile.hobbies)
+          }
+        : null
+    };
   }
 
   async updateProfile(userId: string, input: UpdateProfileInput) {
@@ -75,10 +93,14 @@ export class UsersService {
         });
       }
 
+      const hobbiesJson = input.hobbies
+        ? (input.hobbies as Prisma.InputJsonValue)
+        : undefined;
+
       const updateData: Prisma.ProfileUncheckedUpdateInput = {
         occupation: input.occupation,
         age: input.age,
-        hobbies: input.hobbies,
+        hobbies: hobbiesJson,
         editorChoice: input.editorChoice,
         languageChoice: input.languageChoice,
         githubUsername: input.githubUsername,
@@ -94,7 +116,7 @@ export class UsersService {
         userId,
         occupation: input.occupation ?? null,
         age: input.age ?? null,
-        hobbies: input.hobbies ?? [],
+        hobbies: (input.hobbies ?? []) as Prisma.InputJsonValue,
         editorChoice: input.editorChoice ?? null,
         languageChoice: input.languageChoice ?? null,
         githubUsername: input.githubUsername ?? null,
@@ -112,10 +134,36 @@ export class UsersService {
         create: createData
       });
 
-      return tx.user.findUnique({
+      const updated = await tx.user.findUnique({
         where: { id: userId },
         include: { profile: true }
       });
+
+      if (!updated) {
+        throw new NotFoundException("User not found");
+      }
+
+      return {
+        ...updated,
+        profile: updated.profile
+          ? {
+              ...updated.profile,
+              hobbies: normalizeHobbies(updated.profile.hobbies)
+            }
+          : null
+      };
     });
   }
+}
+
+function normalizeHobbies(value: Prisma.JsonValue): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
+    .slice(0, 3);
 }

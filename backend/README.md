@@ -1,7 +1,7 @@
 # GitLove Backend (Local Dev)
 
 NestJS + TypeScript backend starter for GitLove with:
-- PostgreSQL (Prisma)
+- SQLite (Prisma)
 - Prisma ORM
 - Firebase Auth support
 - HTTP APIs for health/challenges/interest/matches/chat history
@@ -17,7 +17,7 @@ npm run prisma:generate
 npm run dev
 ```
 
-Set `DATABASE_URL`, `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and `FIREBASE_PRIVATE_KEY` in `.env`, then run:
+Set `DATABASE_URL` (default: `file:./dev.db`), `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and `FIREBASE_PRIVATE_KEY` in `.env`, then run:
 
 ```bash
 npm run prisma:push

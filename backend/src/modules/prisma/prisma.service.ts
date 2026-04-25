@@ -10,10 +10,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     try {
       await this.$connect();
       this.connected = true;
-      this.logger.log("Connected to PostgreSQL");
+      this.logger.log("Connected to SQLite");
     } catch (error) {
       this.connected = false;
-      this.logger.warn(`PostgreSQL unavailable: ${(error as Error).message}`);
+      this.logger.warn(`SQLite unavailable: ${(error as Error).message}`);
     }
   }
 
