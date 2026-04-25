@@ -9,3 +9,4 @@ frontend/out
 npm-debug.log*
 backend/prisma/*.db
 backend/prisma/*.db-*
+.vercel
