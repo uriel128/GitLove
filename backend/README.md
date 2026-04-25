@@ -1,9 +1,9 @@
 # GitLove Backend (Local Dev)
 
 NestJS + TypeScript backend starter for GitLove with:
-- PostgreSQL (Supabase)
+- PostgreSQL (Prisma)
 - Prisma ORM
-- Supabase Auth support
+- Firebase Auth support
 - HTTP APIs for health/challenges/interest/matches/chat history
 - Socket.IO gateway for real-time chat
 
@@ -17,7 +17,7 @@ npm run prisma:generate
 npm run dev
 ```
 
-Set `DATABASE_URL`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`) in `.env`, then run:
+Set `DATABASE_URL`, `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and `FIREBASE_PRIVATE_KEY` in `.env`, then run:
 
 ```bash
 npm run prisma:push
@@ -35,8 +35,8 @@ Health check:
 - `GET /api/users`
 - `GET /api/users/:userId`
 - `PATCH /api/users/:userId/profile`
-- `GET /api/auth/me` (requires Supabase bearer token)
-- `POST /api/auth/sync` (requires Supabase bearer token)
+- `GET /api/auth/me` (requires Firebase ID token bearer)
+- `POST /api/auth/sync` (requires Firebase ID token bearer)
 - `GET /api/challenges/random?difficulty=EASY|MEDIUM|HARD`
 - `POST /api/interest/open`
 - `POST /api/interest/:requestId/attempt`
@@ -60,11 +60,11 @@ Events:
 - `send_message` payload: `{ "matchId": "<matchId>", "content": "hello", "format": "MARKDOWN" }`
 - server emits `new_message`
 
-## 4) Supabase auth handshake
+## 4) Firebase auth handshake
 
-When frontend signs in with Supabase, call:
+When frontend signs in with Firebase, call:
 
-1. `GET /api/auth/me` with `Authorization: Bearer <supabase-access-token>`
+1. `GET /api/auth/me` with `Authorization: Bearer <firebase-id-token>`
 2. or `POST /api/auth/sync` with same bearer token
 
 Response includes `appUser` (GitLove internal user record). Existing endpoints can then use `appUser.id`.

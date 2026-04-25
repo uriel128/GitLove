@@ -3,7 +3,7 @@ import { AuthService } from "./auth.service";
 import { AuthenticatedRequest } from "./auth.types";
 
 @Injectable()
-export class SupabaseAuthGuard implements CanActivate {
+export class FirebaseAuthGuard implements CanActivate {
   constructor(private readonly authService: AuthService) {}
 
   async canActivate(context: ExecutionContext) {

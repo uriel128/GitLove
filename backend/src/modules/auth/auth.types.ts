@@ -1,5 +1,5 @@
 export type AuthUser = {
-  supabaseUserId: string;
+  firebaseUserId: string;
   email: string;
   displayName: string;
 };

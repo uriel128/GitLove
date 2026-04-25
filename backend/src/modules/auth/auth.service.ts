@@ -1,49 +1,46 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
-import { SupabaseClient, createClient } from "@supabase/supabase-js";
+import { DecodedIdToken, getAuth } from "firebase-admin/auth";
+import { App, cert, getApp, getApps, initializeApp } from "firebase-admin/app";
 import { env } from "../../config/env";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuthUser } from "./auth.types";
 
 @Injectable()
 export class AuthService {
-  private readonly supabaseClient: SupabaseClient | null;
+  private readonly firebaseApp: App | null;
 
   constructor(private readonly prisma: PrismaService) {
-    if (!env.SUPABASE_URL || (!env.SUPABASE_ANON_KEY && !env.SUPABASE_SERVICE_ROLE_KEY)) {
-      this.supabaseClient = null;
+    if (!env.FIREBASE_PROJECT_ID) {
+      this.firebaseApp = null;
       return;
     }
 
-    this.supabaseClient = createClient(
-      env.SUPABASE_URL,
-      env.SUPABASE_SERVICE_ROLE_KEY ?? env.SUPABASE_ANON_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
+    this.firebaseApp = getOrCreateFirebaseApp();
   }
 
   async verifyBearerToken(token: string): Promise<AuthUser> {
-    if (!this.supabaseClient) {
-      throw new UnauthorizedException("Supabase auth is not configured on the backend");
+    if (!this.firebaseApp) {
+      throw new UnauthorizedException("Firebase auth is not configured on the backend");
     }
 
-    const { data, error } = await this.supabaseClient.auth.getUser(token);
-    if (error || !data.user) {
-      throw new UnauthorizedException("Invalid Supabase access token");
+    let decoded: DecodedIdToken;
+    try {
+      decoded = await getAuth(this.firebaseApp).verifyIdToken(token);
+    } catch {
+      throw new UnauthorizedException("Invalid Firebase ID token");
     }
 
-    const email = data.user.email;
+    const email = decoded.email;
     if (!email) {
-      throw new UnauthorizedException("Supabase user email is required");
+      throw new UnauthorizedException("Firebase user email is required");
     }
 
     const displayName =
-      firstString(data.user.user_metadata?.full_name) ??
-      firstString(data.user.user_metadata?.name) ??
-      firstString(data.user.user_metadata?.user_name) ??
+      firstString(decoded.name) ??
       email.split("@")[0];
 
     return {
-      supabaseUserId: data.user.id,
+      firebaseUserId: decoded.uid,
       email,
       displayName
     };
@@ -85,4 +82,25 @@ function firstString(value: unknown): string | null {
   }
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function getOrCreateFirebaseApp() {
+  if (getApps().length > 0) {
+    return getApp();
+  }
+
+  if (env.FIREBASE_CLIENT_EMAIL && env.FIREBASE_PRIVATE_KEY) {
+    return initializeApp({
+      credential: cert({
+        projectId: env.FIREBASE_PROJECT_ID,
+        clientEmail: env.FIREBASE_CLIENT_EMAIL,
+        privateKey: env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n")
+      }),
+      projectId: env.FIREBASE_PROJECT_ID
+    });
+  }
+
+  return initializeApp({
+    projectId: env.FIREBASE_PROJECT_ID
+  });
 }
