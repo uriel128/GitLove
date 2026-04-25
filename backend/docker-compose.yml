@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gitlove-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: gitlove
+      POSTGRES_PASSWORD: gitlove
+      POSTGRES_DB: gitlove
+    volumes:
+      - gitlove-postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: gitlove-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - gitlove-redis-data:/data
+
+volumes:
+  gitlove-postgres-data:
+  gitlove-redis-data:
