@@ -17,12 +17,11 @@ Environment files are versioned in this repo:
 
 ## 2) Configure Firebase + DB
 
-- use SQLite URL in `backend/.env` as `DATABASE_URL` (default: `file:./dev.db`)
-- set Firebase Admin vars in `backend/.env`:
-  - `FIREBASE_PROJECT_ID`
-  - `FIREBASE_CLIENT_EMAIL`
-  - `FIREBASE_PRIVATE_KEY`
-- then run:
+For this testing phase, shared env files are committed in repo:
+- `backend/.env`
+- `frontend/.env.local`
+
+No per-machine env setup is required. Just run:
 
 ```bash
 npm run db:push

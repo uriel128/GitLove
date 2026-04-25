@@ -16,7 +16,7 @@ npm run prisma:generate
 npm run dev
 ```
 
-`backend/.env` is versioned in the repo. Ensure it has `DATABASE_URL` (default: `file:./dev.db`), `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and `FIREBASE_PRIVATE_KEY`, then run:
+`backend/.env` is versioned in the repo for testing, so no per-machine env setup is required. Then run:
 
 ```bash
 npm run prisma:push
