@@ -7,3 +7,4 @@ frontend/.next
 frontend/out
 frontend/.env.local
 backend/.env
+*.tsbuildinfo

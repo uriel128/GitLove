@@ -1,9 +1,10 @@
 # GitLove Backend (Local Dev)
 
 NestJS + TypeScript backend starter for GitLove with:
-- PostgreSQL (Docker)
+- PostgreSQL (Supabase or local Docker)
 - Redis (Docker)
 - Prisma ORM
+- Supabase Auth support
 - HTTP APIs for health/challenges/interest/matches/chat history
 - Socket.IO gateway for real-time chat
 
@@ -13,11 +14,23 @@ NestJS + TypeScript backend starter for GitLove with:
 cd backend
 cp .env.example .env
 npm install
-npm run db:up
 npm run prisma:generate
+npm run dev
+```
+
+If you are using Supabase, set `DATABASE_URL`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`) in `.env`, then run:
+
+```bash
 npm run prisma:push
 npm run seed
-npm run dev
+```
+
+If you are using local Postgres/Redis instead:
+
+```bash
+npm run db:up
+npm run prisma:push
+npm run seed
 ```
 
 Server URL:
@@ -31,6 +44,8 @@ Health check:
 - `GET /api/users`
 - `GET /api/users/:userId`
 - `PATCH /api/users/:userId/profile`
+- `GET /api/auth/me` (requires Supabase bearer token)
+- `POST /api/auth/sync` (requires Supabase bearer token)
 - `GET /api/challenges/random?difficulty=EASY|MEDIUM|HARD`
 - `POST /api/interest/open`
 - `POST /api/interest/:requestId/attempt`
@@ -54,7 +69,16 @@ Events:
 - `send_message` payload: `{ "matchId": "<matchId>", "content": "hello", "format": "MARKDOWN" }`
 - server emits `new_message`
 
-## 4) Seed users
+## 4) Supabase auth handshake
+
+When frontend signs in with Supabase, call:
+
+1. `GET /api/auth/me` with `Authorization: Bearer <supabase-access-token>`
+2. or `POST /api/auth/sync` with same bearer token
+
+Response includes `appUser` (GitLove internal user record). Existing endpoints can then use `appUser.id`.
+
+## 5) Seed users
 
 - `alice@gitlove.dev`
 - `bob@gitlove.dev`

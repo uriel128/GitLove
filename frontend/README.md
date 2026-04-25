@@ -14,3 +14,7 @@ Default local URL:
 
 Expected backend:
 - `http://localhost:4000/api`
+
+Optional Supabase frontend vars:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
