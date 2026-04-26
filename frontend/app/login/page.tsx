@@ -11,11 +11,13 @@ export default function LoginPage() {
   const router = useRouter();
   const {
     currentUser,
-    firebaseConfigured,
-    firebaseConfigIssues,
+    supabaseConfigured,
+    supabaseConfigIssues,
     isReady,
     isSignedIn,
     loginWithEmail,
+    loginWithGoogle,
+    loginWithGitHub,
     logout,
     signupWithEmail
   } = useAuth();
@@ -23,7 +25,7 @@ export default function LoginPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [status, setStatus] = useState("Use Firebase credentials to enter GitLove.");
+  const [status, setStatus] = useState("Use Supabase credentials to enter GitLove.");
   const [busy, setBusy] = useState(false);
 
   async function handleSubmit() {
@@ -45,11 +47,35 @@ export default function LoginPage() {
     }
   }
 
+  async function handleGitHub() {
+    setBusy(true);
+    try {
+      await loginWithGitHub();
+      setStatus("Redirecting to GitHub OAuth...");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "GitHub auth failed";
+      setStatus(message);
+      setBusy(false);
+    }
+  }
+
+  async function handleGoogle() {
+    setBusy(true);
+    try {
+      await loginWithGoogle();
+      setStatus("Redirecting to Google OAuth...");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Google auth failed";
+      setStatus(message);
+      setBusy(false);
+    }
+  }
+
   if (!isReady) {
     return (
       <section className="mx-auto mt-20 max-w-xl rounded-3xl border border-line bg-panel p-8">
         <h1 className="text-2xl font-semibold">Loading Auth</h1>
-        <p className="mt-3 text-sm text-muted">Restoring your Firebase session.</p>
+        <p className="mt-3 text-sm text-muted">Restoring your Supabase session.</p>
       </section>
     );
   }
@@ -60,27 +86,27 @@ export default function LoginPage() {
         <section className="rounded-[32px] border border-line bg-panel p-8">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">GitLove Auth</p>
           <h1 className="mt-4 text-4xl font-semibold leading-tight">
-            Log in with Firebase,
+            Log in with Supabase,
             <br />
             then open the app.
           </h1>
           <p className="mt-4 max-w-xl text-sm text-muted">
-            This splash page handles Firebase login, Firebase signup, and backend user sync through
+            This splash page handles Supabase login, signup, and app user sync through
             `/api/auth/sync`.
           </p>
 
           <div className="mt-8 grid gap-3 sm:grid-cols-3">
             <div className="rounded-2xl border border-line bg-panelAlt p-4">
               <div className="text-xl font-semibold">1</div>
-              <div className="mt-2 text-sm text-muted">Authenticate against Firebase Auth.</div>
+              <div className="mt-2 text-sm text-muted">Authenticate against Supabase Auth.</div>
             </div>
             <div className="rounded-2xl border border-line bg-panelAlt p-4">
               <div className="text-xl font-semibold">2</div>
-              <div className="mt-2 text-sm text-muted">Exchange the ID token with the backend.</div>
+              <div className="mt-2 text-sm text-muted">Sync to GitLove user record.</div>
             </div>
             <div className="rounded-2xl border border-line bg-panelAlt p-4">
               <div className="text-xl font-semibold">3</div>
-              <div className="mt-2 text-sm text-muted">Open Home with a real GitLove app user.</div>
+              <div className="mt-2 text-sm text-muted">Open Home with a real GitLove session.</div>
             </div>
           </div>
 
@@ -116,14 +142,14 @@ export default function LoginPage() {
             </button>
           </div>
 
-          {!firebaseConfigured ? (
+          {!supabaseConfigured ? (
             <div className="mt-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
-              <div className="font-medium text-amber-200">Firebase client config is incomplete</div>
+              <div className="font-medium text-amber-200">Supabase config is incomplete</div>
               <div className="mt-2 text-amber-100/80">
-                Missing: {firebaseConfigIssues.join(", ")}
+                Missing: {supabaseConfigIssues.join(", ")}
               </div>
               <div className="mt-2 text-amber-100/80">
-                Add those values to `frontend/.env.local` so this page can authenticate with Firebase.
+                Add those values to `frontend/.env.local` so this page can authenticate.
               </div>
             </div>
           ) : null}
@@ -167,7 +193,7 @@ export default function LoginPage() {
             onClick={() => void handleSubmit()}
             disabled={
               busy ||
-              !firebaseConfigured ||
+              !supabaseConfigured ||
               !email.trim() ||
               !password.trim() ||
               (mode === "signup" && !name.trim())
@@ -175,6 +201,24 @@ export default function LoginPage() {
             className="mt-6 w-full rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
           >
             {busy ? "Working..." : mode === "login" ? "Login" : "Create Account"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void handleGoogle()}
+            disabled={busy || !supabaseConfigured}
+            className="mt-3 w-full rounded-2xl border border-line px-4 py-3 text-sm text-text disabled:opacity-50"
+          >
+            Continue with Google
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void handleGitHub()}
+            disabled={busy || !supabaseConfigured}
+            className="mt-3 w-full rounded-2xl border border-line px-4 py-3 text-sm text-text disabled:opacity-50"
+          >
+            Continue with GitHub
           </button>
 
           {isSignedIn ? (
@@ -206,7 +250,7 @@ export default function LoginPage() {
             <Link href="/" className="hover:text-text">
               Back to landing
             </Link>
-            <span>Firebase + Nest backend</span>
+            <span>Supabase + Next API</span>
           </div>
         </section>
       </div>

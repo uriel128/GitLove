@@ -8,16 +8,12 @@ import {
   useMemo,
   useState
 } from "react";
-import {
-  createUserWithEmailAndPassword,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut,
-  updateProfile,
-  User as FirebaseUser
-} from "firebase/auth";
 import { apiRequest } from "@/lib/api";
-import { getFirebaseAuth, getFirebaseConfigIssues, isFirebaseConfigured } from "@/lib/firebase";
+import {
+  getSupabaseBrowserClient,
+  getSupabaseConfigIssues,
+  isSupabaseConfigured
+} from "@/lib/supabase/client";
 import { User } from "@/lib/types";
 
 type AuthSyncResponse = {
@@ -29,10 +25,12 @@ type AuthContextValue = {
   isSignedIn: boolean;
   currentUserId: string | null;
   currentUser: User | null;
-  firebaseConfigured: boolean;
-  firebaseConfigIssues: string[];
+  supabaseConfigured: boolean;
+  supabaseConfigIssues: string[];
   loginWithEmail: (email: string, password: string) => Promise<void>;
   signupWithEmail: (name: string, email: string, password: string) => Promise<void>;
+  loginWithGitHub: () => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -41,43 +39,94 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isReady, setIsReady] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const firebaseConfigured = isFirebaseConfigured();
-  const firebaseConfigIssues = getFirebaseConfigIssues();
+  const supabaseConfigured = isSupabaseConfigured();
+  const supabaseConfigIssues = getSupabaseConfigIssues();
 
   useEffect(() => {
-    if (!firebaseConfigured) {
+    if (!supabaseConfigured) {
       setCurrentUser(null);
       setIsReady(true);
       return;
     }
 
-    const auth = getFirebaseAuth();
-    if (!auth) {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
       setCurrentUser(null);
       setIsReady(true);
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!firebaseUser) {
+    let active = true;
+
+    const bootstrap = async () => {
+      const {
+        data: { session }
+      } = await supabase.auth.getSession();
+
+      if (!active) {
+        return;
+      }
+
+      if (!session?.access_token) {
         setCurrentUser(null);
         setIsReady(true);
         return;
       }
 
       try {
-        const appUser = await syncFirebaseUser(firebaseUser);
-        setCurrentUser(appUser);
+        const appUser = await syncSupabaseUser(session.access_token);
+        if (active) {
+          setCurrentUser(appUser);
+        }
       } catch (error) {
-        console.error("Failed to sync Firebase user with backend", error);
-        setCurrentUser(null);
+        console.error("Failed to sync Supabase user", error);
+        if (active) {
+          setCurrentUser(null);
+        }
       } finally {
+        if (active) {
+          setIsReady(true);
+        }
+      }
+    };
+
+    void bootstrap();
+
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!active) {
+        return;
+      }
+
+      if (!session?.access_token) {
+        setCurrentUser(null);
         setIsReady(true);
+        return;
+      }
+
+      try {
+        const appUser = await syncSupabaseUser(session.access_token);
+        if (active) {
+          setCurrentUser(appUser);
+        }
+      } catch (error) {
+        console.error("Failed to sync Supabase user", error);
+        if (active) {
+          setCurrentUser(null);
+        }
+      } finally {
+        if (active) {
+          setIsReady(true);
+        }
       }
     });
 
-    return unsubscribe;
-  }, [firebaseConfigured]);
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [supabaseConfigured]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -85,36 +134,80 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isSignedIn: Boolean(currentUser),
       currentUserId: currentUser?.id ?? null,
       currentUser,
-      firebaseConfigured,
-      firebaseConfigIssues,
+      supabaseConfigured,
+      supabaseConfigIssues,
       loginWithEmail: async (email, password) => {
-        const auth = requireFirebaseAuth();
-        const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
-        const appUser = await syncFirebaseUser(credential.user);
+        const supabase = requireSupabaseClient();
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password
+        });
+
+        if (error || !data.session?.access_token) {
+          throw new Error(error?.message ?? "Login failed");
+        }
+
+        const appUser = await syncSupabaseUser(data.session.access_token);
         setCurrentUser(appUser);
       },
       signupWithEmail: async (name, email, password) => {
-        const auth = requireFirebaseAuth();
-        const normalizedName = name.trim();
-        const normalizedEmail = email.trim();
-        const credential = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
+        const supabase = requireSupabaseClient();
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            data: {
+              name: name.trim()
+            }
+          }
+        });
 
-        if (normalizedName) {
-          await updateProfile(credential.user, { displayName: normalizedName });
+        if (error) {
+          throw new Error(error.message);
         }
 
-        const appUser = await syncFirebaseUser(credential.user);
+        if (!data.session?.access_token) {
+          throw new Error("Signup requires email confirmation before login");
+        }
+
+        const appUser = await syncSupabaseUser(data.session.access_token);
         setCurrentUser(appUser);
       },
+      loginWithGitHub: async () => {
+        const supabase = requireSupabaseClient();
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "github",
+          options: {
+            redirectTo: `${window.location.origin}/home`
+          }
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+      },
+      loginWithGoogle: async () => {
+        const supabase = requireSupabaseClient();
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: `${window.location.origin}/home`
+          }
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+      },
       logout: async () => {
-        const auth = getFirebaseAuth();
+        const supabase = getSupabaseBrowserClient();
         setCurrentUser(null);
-        if (auth) {
-          await signOut(auth);
+        if (supabase) {
+          await supabase.auth.signOut();
         }
       }
     }),
-    [currentUser, firebaseConfigIssues, firebaseConfigured, isReady]
+    [currentUser, isReady, supabaseConfigured, supabaseConfigIssues]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -128,23 +221,22 @@ export function useAuth() {
   return context;
 }
 
-async function syncFirebaseUser(firebaseUser: FirebaseUser) {
-  const token = await firebaseUser.getIdToken();
+async function syncSupabaseUser(accessToken: string) {
   const response = await apiRequest<AuthSyncResponse>("/auth/sync", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`
+      Authorization: `Bearer ${accessToken}`
     }
   });
 
   return response.appUser;
 }
 
-function requireFirebaseAuth() {
-  const auth = getFirebaseAuth();
-  if (!auth) {
-    throw new Error("Firebase auth is not configured on the frontend");
+function requireSupabaseClient() {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) {
+    throw new Error("Supabase is not configured on the frontend");
   }
 
-  return auth;
+  return supabase;
 }

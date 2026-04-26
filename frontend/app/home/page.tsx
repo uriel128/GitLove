@@ -96,7 +96,7 @@ export default function HomePage() {
       <div className="space-y-6">
       <section className="grid gap-4 rounded-md border border-line bg-panel p-4 md:grid-cols-3">
         <div>
-          <div className="text-xs text-muted">Backend Health</div>
+          <div className="text-xs text-muted">Supabase Health</div>
           <div className="mt-1 text-sm">
             {healthQuery.data ? `${healthQuery.data.status.toUpperCase()}` : "Checking..."}
           </div>

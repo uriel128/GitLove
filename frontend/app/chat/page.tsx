@@ -1,15 +1,13 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { RealtimeChannel } from "@supabase/supabase-js";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { io, Socket } from "socket.io-client";
 import { api } from "@/lib/api";
 import { RequireAuth } from "@/components/require-auth";
 import { useAuth } from "@/lib/auth";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ChatMessage, Match } from "@/lib/types";
-
-const socketBase = process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:4000";
-const chatNamespace = process.env.NEXT_PUBLIC_CHAT_NAMESPACE ?? "/chat";
 
 export default function ChatPage() {
   const queryClient = useQueryClient();
@@ -17,8 +15,8 @@ export default function ChatPage() {
   const [matchId, setMatchId] = useState("");
   const [content, setContent] = useState("");
   const [format, setFormat] = useState<"MARKDOWN" | "CODE" | "TEXT">("MARKDOWN");
-  const [socketState, setSocketState] = useState("disconnected");
-  const socketRef = useRef<Socket | null>(null);
+  const [realtimeState, setRealtimeState] = useState("disconnected");
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   const matchesQuery = useQuery({
     queryKey: ["matches", currentUserId],
@@ -44,60 +42,59 @@ export default function ChatPage() {
   });
 
   useEffect(() => {
-    if (!currentUserId || !matchId) {
+    const supabase = getSupabaseBrowserClient();
+
+    if (!supabase || !matchId || !currentUserId) {
+      setRealtimeState("disconnected");
       return;
     }
 
-    const socket: Socket = io(`${socketBase}${chatNamespace}`, {
-      auth: { userId: currentUserId }
-    });
-    socketRef.current = socket;
+    const channel = supabase
+      .channel(`chat:${matchId}`)
+      .on("broadcast", { event: "new_message" }, () => {
+        void queryClient.invalidateQueries({ queryKey: ["messages", matchId, currentUserId] });
+        void queryClient.invalidateQueries({ queryKey: ["stack-trace"] });
+      })
+      .subscribe((status) => {
+        setRealtimeState(status === "SUBSCRIBED" ? "connected" : "disconnected");
+      });
 
-    socket.on("connect", () => {
-      setSocketState("connected");
-      socket.emit("join_room", { matchId });
-    });
-    socket.on("disconnect", () => setSocketState("disconnected"));
-    socket.on("new_message", () => {
-      void queryClient.invalidateQueries({ queryKey: ["messages", matchId, currentUserId] });
-      void queryClient.invalidateQueries({ queryKey: ["stack-trace"] });
-    });
+    channelRef.current = channel;
 
     return () => {
-      socketRef.current = null;
-      socket.disconnect();
+      channelRef.current = null;
+      void supabase.removeChannel(channel);
+      setRealtimeState("disconnected");
     };
   }, [currentUserId, matchId, queryClient]);
 
   const sendMutation = useMutation({
     mutationFn: async () => {
-      const socket = socketRef.current;
-      if (!socket || socketState !== "connected") {
-        throw new Error("socket not connected");
+      if (!currentUserId) {
+        throw new Error("Missing current user");
       }
 
-      await new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error("send timeout")), 3000);
-        socket.emit(
-          "send_message",
-          {
-            matchId,
-            content: content.trim(),
-            format
-          },
-          (ack: { ok?: boolean }) => {
-            clearTimeout(timeout);
-            if (ack?.ok) {
-              resolve();
-              return;
-            }
-            reject(new Error("message rejected"));
-          }
-        );
+      const message = await api.post<ChatMessage>(`/chat/${matchId}/messages`, {
+        senderId: currentUserId,
+        content: content.trim(),
+        format
       });
+
+      const channel = channelRef.current;
+      if (channel) {
+        await channel.send({
+          type: "broadcast",
+          event: "new_message",
+          payload: { matchId }
+        });
+      }
+
+      return message;
     },
     onSuccess: () => {
       setContent("");
+      void queryClient.invalidateQueries({ queryKey: ["messages", matchId, currentUserId] });
+      void queryClient.invalidateQueries({ queryKey: ["stack-trace"] });
     }
   });
 
@@ -109,72 +106,72 @@ export default function ChatPage() {
   return (
     <RequireAuth>
       <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
-      <section className="rounded-md border border-line bg-panel p-4">
-        <h1 className="text-base font-semibold">Chat / Direct Connection</h1>
-        <div className="mt-1 text-xs text-muted">Socket status: {socketState}</div>
+        <section className="rounded-md border border-line bg-panel p-4">
+          <h1 className="text-base font-semibold">Chat / Direct Connection</h1>
+          <div className="mt-1 text-xs text-muted">Realtime status: {realtimeState}</div>
 
-        <label className="mt-4 block text-xs text-muted">Match</label>
-        <select
-          value={matchId}
-          onChange={(event) => setMatchId(event.target.value)}
-          className="mt-1 w-full rounded-md border border-line bg-panelAlt px-3 py-2 text-sm"
-        >
-          {(matchesQuery.data ?? []).map((match) => (
-            <option key={match.id} value={match.id}>
-              {match.userA.name} ↔ {match.userB.name}
-            </option>
-          ))}
-        </select>
-      </section>
-
-      <section className="rounded-md border border-line bg-panel p-4">
-        <div className="border-b border-line pb-3">
-          <h2 className="text-sm text-muted">
-            {selectedMatch ? `${selectedMatch.userA.name} and ${selectedMatch.userB.name}` : "No active match"}
-          </h2>
-        </div>
-
-        <div className="mt-3 h-[48vh] space-y-2 overflow-y-auto rounded-md border border-line bg-panelAlt p-3">
-          {(messagesQuery.data ?? []).map((message) => (
-            <div key={message.id} className="rounded-md border border-line bg-black/20 px-3 py-2">
-              <div className="text-xs text-muted">
-                {message.sender.name} · {new Date(message.createdAt).toLocaleTimeString()}
-              </div>
-              {message.format === "CODE" ? (
-                <pre className="mt-1 overflow-x-auto text-xs text-accent">{message.content}</pre>
-              ) : (
-                <p className="mt-1 whitespace-pre-wrap text-sm">{message.content}</p>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-3 flex gap-2">
+          <label className="mt-4 block text-xs text-muted">Match</label>
           <select
-            value={format}
-            onChange={(event) => setFormat(event.target.value as "MARKDOWN" | "CODE" | "TEXT")}
-            className="rounded-md border border-line bg-panelAlt px-2 py-2 text-sm"
+            value={matchId}
+            onChange={(event) => setMatchId(event.target.value)}
+            className="mt-1 w-full rounded-md border border-line bg-panelAlt px-3 py-2 text-sm"
           >
-            <option value="MARKDOWN">Markdown</option>
-            <option value="CODE">Code</option>
-            <option value="TEXT">Text</option>
+            {(matchesQuery.data ?? []).map((match) => (
+              <option key={match.id} value={match.id}>
+                {match.userA.name} ↔ {match.userB.name}
+              </option>
+            ))}
           </select>
-          <input
-            value={content}
-            onChange={(event) => setContent(event.target.value)}
-            placeholder="Write a message or code snippet"
-            className="w-full rounded-md border border-line bg-panelAlt px-3 py-2 text-sm"
-          />
-          <button
-            type="button"
-            disabled={!matchId || !content.trim() || sendMutation.isPending || socketState !== "connected"}
-            onClick={() => sendMutation.mutate()}
-            className="rounded-md border border-accent/60 bg-accent/10 px-4 py-2 text-sm text-accent disabled:opacity-50"
-          >
-            Send
-          </button>
-        </div>
-      </section>
+        </section>
+
+        <section className="rounded-md border border-line bg-panel p-4">
+          <div className="border-b border-line pb-3">
+            <h2 className="text-sm text-muted">
+              {selectedMatch ? `${selectedMatch.userA.name} and ${selectedMatch.userB.name}` : "No active match"}
+            </h2>
+          </div>
+
+          <div className="mt-3 h-[48vh] space-y-2 overflow-y-auto rounded-md border border-line bg-panelAlt p-3">
+            {(messagesQuery.data ?? []).map((message) => (
+              <div key={message.id} className="rounded-md border border-line bg-black/20 px-3 py-2">
+                <div className="text-xs text-muted">
+                  {message.sender.name} · {new Date(message.createdAt).toLocaleTimeString()}
+                </div>
+                {message.format === "CODE" ? (
+                  <pre className="mt-1 overflow-x-auto text-xs text-accent">{message.content}</pre>
+                ) : (
+                  <p className="mt-1 whitespace-pre-wrap text-sm">{message.content}</p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3 flex gap-2">
+            <select
+              value={format}
+              onChange={(event) => setFormat(event.target.value as "MARKDOWN" | "CODE" | "TEXT")}
+              className="rounded-md border border-line bg-panelAlt px-2 py-2 text-sm"
+            >
+              <option value="MARKDOWN">Markdown</option>
+              <option value="CODE">Code</option>
+              <option value="TEXT">Text</option>
+            </select>
+            <input
+              value={content}
+              onChange={(event) => setContent(event.target.value)}
+              placeholder="Write a message or code snippet"
+              className="w-full rounded-md border border-line bg-panelAlt px-3 py-2 text-sm"
+            />
+            <button
+              type="button"
+              disabled={!matchId || !content.trim() || sendMutation.isPending || realtimeState !== "connected"}
+              onClick={() => sendMutation.mutate()}
+              className="rounded-md border border-accent/60 bg-accent/10 px-4 py-2 text-sm text-accent disabled:opacity-50"
+            >
+              Send
+            </button>
+          </div>
+        </section>
       </div>
     </RequireAuth>
   );

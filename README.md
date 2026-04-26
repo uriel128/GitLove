@@ -1,71 +1,49 @@
-# GitLove Localhost Setup
+# GitLove
 
-This repo now runs both:
-- `backend` (NestJS + Prisma + Firebase Auth + SQLite + Socket.IO)
-- `frontend` (Next.js + Tailwind + TanStack Query + Monaco)
+GitLove now runs as a Supabase-first Next.js app:
+- `frontend` (Next.js + Tailwind + TanStack Query + Monaco + Supabase Auth/Realtime)
+- `frontend/app/api` route handlers (API surface previously served by the backend)
+- `supabase/schema.sql` and `supabase/seed.sql` for database setup
 
-## 1) Install once
+## 1) Install
 
 ```bash
-cd ~/GitLove
+cd ~/Documents/GitLove
 npm install
 ```
 
-Environment files are versioned in this repo:
-- `backend/.env`
-- `frontend/.env.local`
+## 2) Configure env
 
-## 2) Configure Firebase + DB
-
-For this testing phase, shared env files are committed in repo:
-- `backend/.env`
-- `frontend/.env.local`
-
-No per-machine env setup is required. Just run:
+Create local env from the template:
 
 ```bash
-npm run db:push
-npm run seed
+cp frontend/.env.local.example frontend/.env.local
 ```
 
-## 3) Run full app on localhost
+Then fill values in `frontend/.env.local`:
+- `NEXT_PUBLIC_SUPABASE_URL` (from Supabase Project Settings -> API)
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (from Supabase Project Settings -> API Keys)
+- `SUPABASE_SERVICE_ROLE_KEY` (from Supabase Project Settings -> API Keys, service-role/secret key)
+- `NEXT_PUBLIC_API_URL=/api` (optional; default is `/api`)
+
+## 3) Configure Supabase DB
+
+Run in Supabase SQL editor:
+1. [`supabase/schema.sql`](/home/uriel/Documents/GitLove/supabase/schema.sql)
+2. [`supabase/seed.sql`](/home/uriel/Documents/GitLove/supabase/seed.sql)
+
+## 4) Run app
 
 ```bash
 npm run dev
 ```
 
-Local URLs:
-- Frontend: `http://localhost:3000`
-- Backend API: `http://localhost:4000/api`
-- Health: `http://localhost:4000/api/health`
-- Firebase auth sync endpoint: `http://localhost:4000/api/auth/me`
+Local URL:
+- Frontend + API: `http://localhost:3000`
 
-## 4) Useful commands
+## 5) Useful commands
 
 ```bash
-npm run dev:backend
-npm run dev:frontend
 npm run typecheck
+npm run build
 ```
-
-## 5) Deploy backend to Railway
-
-This repo includes `railway.toml` so Railway can deploy the backend from the monorepo.
-
-1. Create a new Railway project and connect `uriel128/GitLove`.
-2. In the Railway service settings, set **Root Directory** to `/` (repo root).
-3. Add backend env vars in Railway:
-   - `NODE_ENV=production`
-   - `PORT=4000` (Railway can override this automatically)
-   - `CORS_ORIGIN=<your Vercel frontend URL>`
-   - `DATABASE_URL=file:./dev.db`
-   - `FIREBASE_PROJECT_ID`
-   - `FIREBASE_CLIENT_EMAIL`
-   - `FIREBASE_PRIVATE_KEY`
-   - `CHAT_NAMESPACE=/chat`
-4. Railway will use:
-   - build: `npm install && npm run prisma:generate --workspace backend && npm run build --workspace backend`
-   - start: `npm run prisma:push --workspace backend && npm run start --workspace backend`
-
-After deploy, backend health should be:
-- `https://<railway-backend-domain>/api/health`

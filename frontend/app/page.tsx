@@ -111,7 +111,7 @@ export default function LandingPage() {
                 isDark ? "text-white/78" : "text-violet-900/70"
               }`}
             >
-              Log in with Firebase, create your account, then enter the GitLove app with a synced backend user profile.
+              Log in with Supabase Auth, create your account, then enter the GitLove app with a synced user profile.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <Link
@@ -137,14 +137,14 @@ export default function LandingPage() {
             >
               <h2 className="text-lg font-semibold">Authentication Splash</h2>
               <p className={`mt-2 text-sm ${isDark ? "text-white/72" : "text-violet-900/70"}`}>
-                The `Login` button now routes to a dedicated splash page where users can sign in with Firebase or create a Firebase account before opening the app.
+                The `Login` button now routes to a dedicated splash page where users can sign in with Supabase or create an account before opening the app.
               </p>
               <div className="mt-4 grid gap-3 md:grid-cols-3">
                 <div className={`rounded-2xl border p-4 text-sm ${isDark ? "border-violet-400/20 bg-black/20" : "border-violet-200 bg-violet-50/60"}`}>
-                  Firebase email/password auth
+                  Supabase email/password auth
                 </div>
                 <div className={`rounded-2xl border p-4 text-sm ${isDark ? "border-violet-400/20 bg-black/20" : "border-violet-200 bg-violet-50/60"}`}>
-                  Backend sync via `/api/auth/sync`
+                  User sync via `/api/auth/sync`
                 </div>
                 <div className={`rounded-2xl border p-4 text-sm ${isDark ? "border-violet-400/20 bg-black/20" : "border-violet-200 bg-violet-50/60"}`}>
                   App opens only after a real session exists
@@ -196,7 +196,7 @@ export default function LandingPage() {
       <section id="contact" className="relative mx-auto w-full max-w-6xl px-4 py-14 md:px-8">
         <h3 className="text-2xl font-semibold">Contact</h3>
         <p className={`mt-2 max-w-2xl text-sm ${isDark ? "text-white/72" : "text-violet-900/70"}`}>
-          Questions from your team? Reach out and we can share API contracts and integration notes for Firebase auth and the GitLove app shell.
+          Questions from your team? Reach out and we can share API contracts and integration notes for Supabase auth and the GitLove app shell.
         </p>
         <a
           href="mailto:team@gitlove.app"

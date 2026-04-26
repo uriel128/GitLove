@@ -10,3 +10,4 @@ npm-debug.log*
 backend/prisma/*.db
 backend/prisma/*.db-*
 .vercel
+frontend/.env.local
