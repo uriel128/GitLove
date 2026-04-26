@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useMemo, useState, useEffect } from "react";
 import { Challenge } from "@/lib/types";
+import { CircleCheckBig, Play, ShieldAlert, TerminalSquare, X } from "lucide-react";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -137,76 +138,102 @@ export function ChallengeModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-md border border-line bg-panel shadow-2xl">
-        <div className="flex items-center justify-between border-b border-line px-4 py-3 bg-panelAlt">
-          <div className="flex flex-col">
-            <div className="text-xs font-semibold tracking-wider text-accent uppercase">LeetCode Gate</div>
-            <h2 className="text-lg font-bold text-text mt-1">{challenge.title}</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+      <div className="flex h-[92vh] w-full max-w-7xl flex-col overflow-hidden rounded-lg border border-line bg-panel shadow-2xl">
+        <div className="flex items-center justify-between border-b border-line bg-panelAlt px-4 py-3">
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-accent">Challenge Gate</div>
+            <h2 className="truncate pt-1 text-base font-semibold text-text md:text-lg">{challenge.title}</h2>
           </div>
-          <div className="flex flex-col items-end">
-            <div className={`text-xs px-2 py-1 rounded font-bold ${
-              challenge.difficulty === 'HARD' ? 'bg-red-500/20 text-red-500' :
-              challenge.difficulty === 'MEDIUM' ? 'bg-yellow-500/20 text-yellow-500' :
-              'bg-green-500/20 text-green-500'
-            }`}>
+          <div className="flex items-center gap-2">
+            <div
+              className={`rounded-md px-2 py-1 text-xs font-semibold ${
+                challenge.difficulty === "HARD"
+                  ? "bg-red-500/15 text-red-300"
+                  : challenge.difficulty === "MEDIUM"
+                    ? "bg-amber-500/15 text-amber-300"
+                    : "bg-emerald-500/15 text-emerald-300"
+              }`}
+            >
               {challenge.difficulty}
             </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-line bg-panel text-muted transition hover:text-text"
+              aria-label="Close challenge modal"
+            >
+              <X size={15} />
+            </button>
           </div>
         </div>
 
-        <div className="grid flex-1 grid-cols-1 gap-0 overflow-hidden lg:grid-cols-[380px_1fr]">
-          <section className="flex flex-col border-b border-line lg:border-b-0 lg:border-r bg-panel">
-            <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
-              <div 
-                className="prose prose-invert prose-sm max-w-none text-slate-300 leading-relaxed" 
-                dangerouslySetInnerHTML={{ __html: challenge.description || 'No description available.' }} 
+        <div className="grid flex-1 grid-cols-1 gap-0 overflow-hidden lg:grid-cols-[360px_1fr]">
+          <section className="flex flex-col border-b border-line bg-panel lg:border-b-0 lg:border-r">
+            <div className="flex-1 overflow-y-auto p-4">
+              <div
+                className="prose prose-invert prose-sm max-w-none leading-relaxed text-slate-300"
+                dangerouslySetInnerHTML={{ __html: challenge.description || "No description available." }}
               />
             </div>
-            
-            {/* Output Console */}
-            <div className="h-48 border-t border-line bg-black flex flex-col">
-              <div className="px-3 py-1.5 border-b border-line bg-[#1e1e1e] flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-accent"></span>
-                <span className="text-xs font-semibold text-slate-400">EXECUTION CONSOLE</span>
+
+            <div className="flex h-52 flex-col border-t border-line bg-black">
+              <div className="flex items-center justify-between border-b border-line bg-[#121212] px-3 py-2">
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
+                  <TerminalSquare size={13} />
+                  Execution Console
+                </div>
+                {statusLog ? (
+                  <div
+                    className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] ${
+                      statusLog.includes("SUCCESS") ? "bg-emerald-500/20 text-emerald-300" : "bg-red-500/20 text-red-300"
+                    }`}
+                  >
+                    {statusLog.includes("SUCCESS") ? <CircleCheckBig size={12} /> : <ShieldAlert size={12} />}
+                    {statusLog.includes("SUCCESS") ? "Success" : "Failed"}
+                  </div>
+                ) : null}
               </div>
               <div className="flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-relaxed text-slate-300">
                 {logs.length === 0 ? (
-                  <span className="text-slate-600">Awaiting code execution...</span>
+                  <span className="text-slate-600">Waiting for run...</span>
                 ) : (
                   logs.map((log, i) => (
-                    <div key={i} className={`${log.includes('[ERROR]') || log.includes('[FAILED]') ? 'text-red-400' : log.includes('[SUCCESS]') ? 'text-green-400' : ''}`}>
+                    <div
+                      key={i}
+                      className={`${
+                        log.includes("[ERROR]") || log.includes("[FAILED]")
+                          ? "text-red-400"
+                          : log.includes("[SUCCESS]")
+                            ? "text-green-400"
+                            : ""
+                      }`}
+                    >
                       {log}
                     </div>
                   ))
-                )}
-                {statusLog && (
-                  <div className={`mt-2 font-bold ${statusLog.includes('SUCCESS') ? 'text-green-400' : 'text-red-400'}`}>
-                    [{statusLog}]
-                  </div>
                 )}
               </div>
             </div>
           </section>
 
-          <section className="flex min-h-0 flex-col bg-[#1e1e1e]">
-            {/* Editor Toolbar */}
-            <div className="flex items-center justify-between px-4 py-2 border-b border-line/50 bg-[#1e1e1e]">
+          <section className="flex min-h-0 flex-col bg-[#141414]">
+            <div className="flex items-center justify-between border-b border-line/50 bg-[#191919] px-4 py-2.5">
               <div className="flex items-center gap-2">
-                <label className="text-xs text-slate-400 font-semibold">LANGUAGE:</label>
-                <select 
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Language</label>
+                <select
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
-                  className="bg-black border border-line rounded px-2 py-1 text-xs text-slate-200 outline-none focus:border-accent"
+                  className="rounded-md border border-line bg-black px-2 py-1 text-xs text-slate-200 outline-none focus:border-accent"
                 >
-                  {languages.map(l => (
-                    <option key={l} value={l}>{l}</option>
+                  {languages.map((l) => (
+                    <option key={l} value={l}>
+                      {l}
+                    </option>
                   ))}
                 </select>
               </div>
-              <div className="text-xs text-slate-500 font-mono">
-                {submitted ? 'READ-ONLY' : 'EDITING'}
-              </div>
+              <div className="text-xs font-mono text-slate-500">{submitted ? "READ-ONLY" : "EDITING"}</div>
             </div>
 
             <div className="flex-1">
@@ -225,20 +252,20 @@ export function ChallengeModal({
                 }}
               />
             </div>
-            
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line/50 bg-panelAlt px-4 py-3">
+
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line/50 bg-[#191919] px-4 py-3">
               <div className="flex items-center gap-4">
                 <button
                   type="button"
                   onClick={() => void executeCode()}
                   disabled={busy || submitted}
-                  className="rounded-md bg-accent px-6 py-2 text-sm font-bold text-white transition-all hover:bg-accent/90 disabled:opacity-50 flex items-center gap-2 shadow-[0_0_15px_rgba(56,189,248,0.2)]"
+                  className="inline-flex items-center gap-2 rounded-md bg-accent px-5 py-2 text-sm font-semibold text-white transition hover:bg-accent/90 disabled:opacity-50"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>
-                  Compile & Run
+                  <Play size={14} />
+                  Run Tests
                 </button>
-                <span className="text-xs text-slate-400 max-w-[200px] leading-tight">
-                  <span className="font-bold text-accent">Tip:</span> Syntax errors can be retried. Logic failures are final.
+                <span className="max-w-[230px] text-xs leading-tight text-slate-400">
+                  Syntax issues are retryable. Logic failure consumes the attempt.
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -246,14 +273,14 @@ export function ChallengeModal({
                   type="button"
                   onClick={() => void onAbandon()}
                   disabled={busy}
-                  className="rounded-md border border-line bg-panel px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 disabled:opacity-50 transition-colors"
+                  className="rounded-md border border-line bg-panel px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white disabled:opacity-50"
                 >
                   Abandon
                 </button>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-md bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20 transition-colors"
+                  className="rounded-md border border-line bg-transparent px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
                 >
                   Close
                 </button>

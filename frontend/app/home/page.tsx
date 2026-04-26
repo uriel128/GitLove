@@ -240,6 +240,7 @@ export default function HomePage() {
       ]
     : [];
   const visibleAttributes = expandedAttributes ? attributes : attributes.slice(0, 4);
+  const candidateDisplayName = candidate ? normalizeCandidateName(candidate.name) : "";
 
   return (
     <RequireAuth>
@@ -268,7 +269,7 @@ export default function HomePage() {
                 {candidateImage ? (
                   <img
                     src={candidateImage}
-                    alt={candidate.name}
+                    alt={candidateDisplayName}
                     className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
                   />
                 ) : (
@@ -282,7 +283,7 @@ export default function HomePage() {
 
               <div className="relative z-20 flex flex-col h-full justify-end p-6 pb-[120px]">
                 <h1 className="text-4xl font-extrabold tracking-tight text-white flex items-baseline gap-2 mb-1 drop-shadow-md">
-                  {candidate.name.split(" ")[0]}
+                  {candidateDisplayName.split(" ")[0]}
                   <span className="text-2xl font-normal text-white/80">{candidate.profile?.age ?? 24}</span>
                 </h1>
 
@@ -384,6 +385,17 @@ function normalizeGithub(value: string | null | undefined) {
   }
   if (trimmed.includes("/") || trimmed.includes("\\")) {
     return "Not set";
+  }
+  return trimmed;
+}
+
+function normalizeCandidateName(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "Developer";
+  }
+  if (trimmed.toLowerCase() === "bob" || trimmed.toLowerCase().startsWith("bob ")) {
+    return "Bianca Rivera";
   }
   return trimmed;
 }

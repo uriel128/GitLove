@@ -1,6 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { ReactNode } from "react";
+import { CheckCircle2, Clock3, GitCommitHorizontal, ShieldCheck, Target, XCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { RequireAuth } from "@/components/require-auth";
 import { useAuth } from "@/lib/auth";
@@ -40,6 +42,7 @@ export default function BuildLogPage() {
     queryKey: ["users"],
     queryFn: () => api.get<User[]>("/users")
   });
+
   const currentUser = (usersQuery.data ?? []).find((user) => user.id === currentUserId) ?? null;
 
   const buildLogQuery = useQuery({
@@ -52,89 +55,141 @@ export default function BuildLogPage() {
 
   return (
     <RequireAuth>
-      <div className="space-y-4">
-      <section className="rounded-md border border-line bg-panel p-4">
-        <h1 className="text-lg font-semibold">Build Log / Personal Dashboard</h1>
-        <div className="mt-3 max-w-sm">
-          <label className="text-xs text-muted">Signed-In User</label>
-          <div className="mt-1 rounded-md border border-line bg-panelAlt px-3 py-2 text-sm">
-            {currentUser ? `${currentUser.name} (${currentUser.email})` : "Signed-in account not found"}
-          </div>
-        </div>
-      </section>
-
-      {data ? (
-        <>
-          <section className="grid gap-3 md:grid-cols-5">
-            <Metric label="Success Rate" value={`${data.systemHealth.successRate}%`} />
-            <Metric label="Attempts" value={data.systemHealth.totalAttempts} />
-            <Metric label="Passed" value={data.systemHealth.passedAttempts} />
-            <Metric label="Commits" value={data.commits} />
-            <Metric label="Matches" value={data.systemHealth.matchCount} />
-          </section>
-
-          <section className="rounded-md border border-line bg-panel p-4">
-            <h2 className="text-sm font-semibold">Pending Pull Requests</h2>
-            <div className="mt-2 space-y-2">
-              {data.pendingPullRequests.length === 0 ? (
-                <div className="text-sm text-muted">No pending handshake requests.</div>
-              ) : (
-                data.pendingPullRequests.map((request) => (
-                  <div
-                    key={request.requestId}
-                    className="rounded-md border border-line bg-panelAlt px-3 py-2 text-sm"
-                  >
-                    <div className="font-medium">
-                      {request.target.name} · {request.challenge.title}
-                    </div>
-                    <div className="text-xs text-muted">
-                      {request.challenge.difficulty} · opened{" "}
-                      {new Date(request.createdAt).toLocaleString()}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-
-          <section className="rounded-md border border-line bg-panel p-4">
-            <h2 className="text-sm font-semibold">Recent Attempts</h2>
-            <div className="mt-2 space-y-2">
-              {data.recentAttempts.length === 0 ? (
-                <div className="text-sm text-muted">No attempts logged yet.</div>
-              ) : (
-                data.recentAttempts.map((attempt) => (
-                  <div
-                    key={attempt.attemptId}
-                    className="rounded-md border border-line bg-panelAlt px-3 py-2 text-sm"
-                  >
-                    <div className="font-medium">
-                      {attempt.passed ? "PASS" : "FAIL"} · {attempt.challenge.title}
-                    </div>
-                    <div className="text-xs text-muted">
-                      target: {attempt.targetName} · {new Date(attempt.createdAt).toLocaleString()}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-        </>
-      ) : (
-        <section className="rounded-md border border-line bg-panel p-4 text-sm text-muted">
-          Waiting for signed-in account data.
+      <div className="space-y-5">
+        <section className="rounded-xl border border-line bg-panel px-5 py-4">
+          <h1 className="text-lg font-semibold text-text">Build Log</h1>
+          <p className="mt-1 text-sm text-muted">
+            {currentUser ? `${currentUser.name} · ${currentUser.email}` : "Loading account"}
+          </p>
         </section>
-      )}
+
+        {!data ? (
+          <section className="rounded-xl border border-line bg-panel px-5 py-6 text-sm text-muted">
+            Loading build metrics...
+          </section>
+        ) : (
+          <>
+            <section className="grid gap-3 md:grid-cols-5">
+              <MetricTile icon={<ShieldCheck className="h-4 w-4 text-emerald-400" />} label="Success Rate" value={`${data.systemHealth.successRate}%`} />
+              <MetricTile icon={<Target className="h-4 w-4 text-sky-400" />} label="Attempts" value={data.systemHealth.totalAttempts} />
+              <MetricTile icon={<CheckCircle2 className="h-4 w-4 text-emerald-400" />} label="Passed" value={data.systemHealth.passedAttempts} />
+              <MetricTile icon={<GitCommitHorizontal className="h-4 w-4 text-purple-400" />} label="Commits" value={data.commits} />
+              <MetricTile icon={<Clock3 className="h-4 w-4 text-amber-400" />} label="Matches" value={data.systemHealth.matchCount} />
+            </section>
+
+            <section className="rounded-xl border border-line bg-panel px-5 py-4">
+              <h2 className="text-sm font-semibold text-text">System Health</h2>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <ProgressRow label="Pass Rate" value={data.systemHealth.successRate} tone="good" />
+                <ProgressRow
+                  label="Failure Rate"
+                  value={Math.max(0, 100 - data.systemHealth.successRate)}
+                  tone="warn"
+                />
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-line bg-panel px-5 py-4">
+              <h2 className="text-sm font-semibold text-text">Pending Pull Requests</h2>
+              <div className="mt-3 space-y-2">
+                {data.pendingPullRequests.length === 0 ? (
+                  <p className="text-sm text-muted">No pending requests.</p>
+                ) : (
+                  data.pendingPullRequests.map((request) => (
+                    <div key={request.requestId} className="rounded-lg border border-line bg-panelAlt px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-sm font-medium text-text">
+                          {request.target.name} · {request.challenge.title}
+                        </p>
+                        <span className="rounded bg-panel px-2 py-0.5 text-[11px] font-medium text-muted">
+                          {request.challenge.difficulty}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-muted">
+                        Opened {new Date(request.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-line bg-panel px-5 py-4">
+              <h2 className="text-sm font-semibold text-text">Recent Attempts</h2>
+              <div className="mt-3 space-y-2">
+                {data.recentAttempts.length === 0 ? (
+                  <p className="text-sm text-muted">No attempts logged yet.</p>
+                ) : (
+                  data.recentAttempts.map((attempt) => (
+                    <div key={attempt.attemptId} className="rounded-lg border border-line bg-panelAlt px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-sm font-medium text-text">{attempt.challenge.title}</p>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium ${
+                            attempt.passed ? "bg-emerald-500/15 text-emerald-300" : "bg-rose-500/15 text-rose-300"
+                          }`}
+                        >
+                          {attempt.passed ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                          {attempt.passed ? "PASS" : "FAIL"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-muted">
+                        Target {attempt.targetName} · {new Date(attempt.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+          </>
+        )}
       </div>
     </RequireAuth>
   );
 }
 
-function Metric({ label, value }: { label: string; value: string | number }) {
+function MetricTile({
+  icon,
+  label,
+  value
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string | number;
+}) {
   return (
-    <div className="rounded-md border border-line bg-panel p-3">
-      <div className="text-xs text-muted">{label}</div>
-      <div className="mt-1 text-lg font-semibold">{value}</div>
+    <div className="rounded-xl border border-line bg-panel px-4 py-3">
+      <div className="flex items-center justify-between text-xs text-muted">
+        <span>{label}</span>
+        {icon}
+      </div>
+      <div className="mt-1 text-xl font-semibold text-text">{value}</div>
+    </div>
+  );
+}
+
+function ProgressRow({
+  label,
+  value,
+  tone
+}: {
+  label: string;
+  value: number;
+  tone: "good" | "warn";
+}) {
+  const safeValue = Math.max(0, Math.min(100, Number(value.toFixed(2))));
+  return (
+    <div className="rounded-lg border border-line bg-panelAlt px-3 py-3">
+      <div className="mb-2 flex items-center justify-between text-xs text-muted">
+        <span>{label}</span>
+        <span>{safeValue}%</span>
+      </div>
+      <div className="h-2 w-full rounded-full bg-panel">
+        <div
+          className={`h-2 rounded-full ${tone === "good" ? "bg-emerald-400" : "bg-amber-400"}`}
+          style={{ width: `${safeValue}%` }}
+        />
+      </div>
     </div>
   );
 }
