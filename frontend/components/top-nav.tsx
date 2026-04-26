@@ -15,6 +15,8 @@ export function TopNav() {
   const { currentUser, isSignedIn, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const profileImage =
+    (currentUser?.profile as { profileImage?: string | null } | null)?.profileImage ?? null;
   
   const isLanding = pathname === "/";
   const isAuth = pathname === "/login";
@@ -86,8 +88,8 @@ export function TopNav() {
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 className="flex items-center gap-2 rounded-full border border-line bg-panelAlt px-2 py-1.5 hover:bg-white/5 transition-colors"
               >
-                {currentUser.profile?.profileImage ? (
-                  <img src={currentUser.profile.profileImage} alt={currentUser.name} className="w-6 h-6 rounded-full object-cover" />
+                {profileImage ? (
+                  <img src={profileImage} alt={currentUser.name} className="w-6 h-6 rounded-full object-cover" />
                 ) : (
                   <UserCircle className="w-6 h-6 text-muted" />
                 )}
