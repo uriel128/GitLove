@@ -349,7 +349,6 @@ export async function getAuthUserFromAuthorizationHeader(authHeader: string | nu
 }
 
 export async function syncAuthUser(authUser: SupabaseAuthUser) {
-  const supabase = getSupabaseAdminClient();
   const email = authUser.email?.trim().toLowerCase();
 
   if (!email) {
@@ -366,11 +365,55 @@ export async function syncAuthUser(authUser: SupabaseAuthUser) {
   const fallbackName = email.split("@")[0] ?? "Developer";
   const name = (metadataName?.trim() || fallbackName).slice(0, 80);
 
+  return upsertAppUserRecord(authUser.id, email, name);
+}
+
+export async function provisionAuthUser(input: {
+  id: string;
+  email: string;
+  name?: string | null;
+}) {
+  const supabase = getSupabaseAdminClient();
+  const id = input.id.trim();
+  const email = input.email.trim().toLowerCase();
+
+  if (!id) {
+    throw new ApiError(400, "id is required");
+  }
+  if (!email) {
+    throw new ApiError(400, "email is required");
+  }
+
+  const { data: authData, error: authError } = await supabase.auth.admin.getUserById(id);
+  if (authError || !authData.user) {
+    throw new ApiError(400, "Auth user not found");
+  }
+
+  const authEmail = authData.user.email?.trim().toLowerCase();
+  if (!authEmail || authEmail !== email) {
+    throw new ApiError(400, "Auth user email mismatch");
+  }
+
+  const metadataName =
+    typeof authData.user.user_metadata?.name === "string"
+      ? authData.user.user_metadata.name
+      : typeof authData.user.user_metadata?.full_name === "string"
+        ? authData.user.user_metadata.full_name
+        : null;
+
+  const displayName = (input.name?.trim() || metadataName?.trim() || authEmail.split("@")[0] || "Developer").slice(0, 80);
+
+  return upsertAppUserRecord(id, authEmail, displayName);
+}
+
+async function upsertAppUserRecord(userId: string, email: string, name: string) {
+  const supabase = getSupabaseAdminClient();
+
   const { data: userRow, error: upsertError } = await supabase
     .from("users")
     .upsert(
       {
-        id: authUser.id,
+        id: userId,
         email,
         name,
         updated_at: new Date().toISOString()
@@ -387,7 +430,7 @@ export async function syncAuthUser(authUser: SupabaseAuthUser) {
   const { data: profileRow, error: profileError } = await supabase
     .from("profiles")
     .select("*")
-    .eq("user_id", authUser.id)
+    .eq("user_id", userId)
     .maybeSingle();
 
   if (profileError) {

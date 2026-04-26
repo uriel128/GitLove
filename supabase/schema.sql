@@ -30,6 +30,8 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+alter table public.profiles add column if not exists profile_image_url text;
+
 create table if not exists public.challenges (
   id uuid primary key default gen_random_uuid(),
   slug text not null unique,

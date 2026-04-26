@@ -28,7 +28,11 @@ type AuthContextValue = {
   supabaseConfigured: boolean;
   supabaseConfigIssues: string[];
   loginWithEmail: (email: string, password: string) => Promise<void>;
-  signupWithEmail: (name: string, email: string, password: string) => Promise<void>;
+  signupWithEmail: (
+    name: string,
+    email: string,
+    password: string
+  ) => Promise<{ signedIn: boolean; requiresConfirmation?: boolean }>;
   loginWithGitHub: () => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
@@ -152,12 +156,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       signupWithEmail: async (name, email, password) => {
         const supabase = requireSupabaseClient();
+        const normalizedName = name.trim();
+        const normalizedEmail = email.trim();
         const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
+          email: normalizedEmail,
           password,
           options: {
             data: {
-              name: name.trim()
+              name: normalizedName
             }
           }
         });
@@ -167,18 +173,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (!data.session?.access_token) {
-          throw new Error("Signup requires email confirmation before login");
+          if (data.user?.id && data.user.email) {
+            await provisionSupabaseUser({
+              id: data.user.id,
+              email: data.user.email,
+              name: normalizedName || null
+            });
+          }
+
+          return {
+            signedIn: false,
+            requiresConfirmation: true
+          };
         }
 
         const appUser = await syncSupabaseUser(data.session.access_token);
         setCurrentUser(appUser);
+        return { signedIn: true };
       },
       loginWithGitHub: async () => {
         const supabase = requireSupabaseClient();
         const { error } = await supabase.auth.signInWithOAuth({
           provider: "github",
           options: {
-            redirectTo: `${window.location.origin}/home`
+            redirectTo: `${window.location.origin}/onboarding/profile`
           }
         });
 
@@ -191,7 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { error } = await supabase.auth.signInWithOAuth({
           provider: "google",
           options: {
-            redirectTo: `${window.location.origin}/home`
+            redirectTo: `${window.location.origin}/onboarding/profile`
           }
         });
 
@@ -227,6 +245,19 @@ async function syncSupabaseUser(accessToken: string) {
     headers: {
       Authorization: `Bearer ${accessToken}`
     }
+  });
+
+  return response.appUser;
+}
+
+async function provisionSupabaseUser(input: {
+  id: string;
+  email: string;
+  name?: string | null;
+}) {
+  const response = await apiRequest<AuthSyncResponse>("/auth/provision", {
+    method: "POST",
+    body: input
   });
 
   return response.appUser;

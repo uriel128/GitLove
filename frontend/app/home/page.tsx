@@ -2,10 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ChallengeModal } from "@/components/challenge-modal";
 import { RequireAuth } from "@/components/require-auth";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { isProfileComplete } from "@/lib/profile-complete";
 import { InterestRequest, User } from "@/lib/types";
 import { ChevronDown, ChevronUp, Code2, Heart, Terminal, X } from "lucide-react";
 
@@ -41,6 +43,7 @@ const FALLBACK_HOBBIES = [
 ];
 
 export default function HomePage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { currentUserId } = useAuth();
   const [cursor, setCursor] = useState(0);
@@ -57,6 +60,7 @@ export default function HomePage() {
   });
 
   const users = usersQuery.data ?? [];
+  const currentUser = users.find((user) => user.id === currentUserId) ?? null;
   const candidates = useMemo(
     () => users.filter((user) => user.id !== currentUserId),
     [currentUserId, users]
@@ -206,6 +210,15 @@ export default function HomePage() {
   useEffect(() => {
     resetDragTransform(false);
   }, [candidate?.id]);
+
+  useEffect(() => {
+    if (!currentUserId || usersQuery.isLoading) {
+      return;
+    }
+    if (!currentUser || !isProfileComplete(currentUser)) {
+      router.replace("/onboarding/profile");
+    }
+  }, [currentUser, currentUserId, router, usersQuery.isLoading]);
 
   const attributes = candidate
     ? [

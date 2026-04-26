@@ -97,7 +97,7 @@ export default function LandingPage() {
       <div className="pointer-events-none absolute inset-0 bg-[url('/noise.png')] opacity-[0.02] mix-blend-overlay" />
 
       {/* Navigation */}
-      <header className="fixed top-0 inset-x-0 z-50 w-full border-b border-black/[0.05] dark:border-transparent bg-slate-50/80 dark:bg-panel/50 backdrop-blur-xl transition-all">
+      <header className="fixed top-0 inset-x-0 z-50 w-full border-b border-black/[0.05] dark:border-transparent bg-slate-50/80 dark:bg-[#1a102d]/95 backdrop-blur-xl transition-all">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center">

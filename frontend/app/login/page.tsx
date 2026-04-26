@@ -42,6 +42,12 @@ function AuthContent() {
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    if (isReady) {
+      setBusy(false);
+    }
+  }, [isReady, isSignedIn]);
+
   async function handleSubmit() {
     setBusy(true);
     setStatus("");
@@ -49,11 +55,17 @@ function AuthContent() {
       if (mode === "login") {
         await loginWithEmail(email, password);
         setStatus("Login successful. Opening app...");
+        router.push("/home");
       } else {
-        await signupWithEmail(name, email, password);
-        setStatus("Account created. Opening app...");
+        const result = await signupWithEmail(name, email, password);
+        if (result.signedIn) {
+          setStatus("Account created. Continue with your profile setup...");
+          router.push("/onboarding/profile");
+        } else {
+          setStatus("Account created and stored. Check your email to verify, then sign in.");
+          setMode("login");
+        }
       }
-      router.push("/home");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Authentication failed";
       setStatus(message);
@@ -68,6 +80,7 @@ function AuthContent() {
     try {
       await loginWithGitHub();
       setStatus("Redirecting to GitHub OAuth...");
+      window.setTimeout(() => setBusy(false), 2500);
     } catch (error) {
       const message = error instanceof Error ? error.message : "GitHub auth failed";
       setStatus(message);
@@ -81,6 +94,7 @@ function AuthContent() {
     try {
       await loginWithGoogle();
       setStatus("Redirecting to Google OAuth...");
+      window.setTimeout(() => setBusy(false), 2500);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Google auth failed";
       setStatus(message);
