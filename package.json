@@ -10,7 +10,8 @@
     "typecheck": "npm run typecheck --workspace frontend",
     "build": "npm run build --workspace frontend",
     "start": "npm run start --workspace frontend",
-    "seed:women": "npm run seed:women --workspace frontend"
+    "seed:women": "npm run seed:women --workspace frontend",
+    "seed:chats": "npm run seed:chats --workspace frontend"
   },
   "devDependencies": {}
 }

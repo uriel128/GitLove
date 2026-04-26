@@ -20,6 +20,7 @@ import {
   submitInterestAttempt,
   syncAuthUser,
   provisionAuthUser,
+  uploadProfileImage,
   devSignupAuthUser,
   updateUserProfile
 } from "@/lib/server/gitlove";
@@ -206,6 +207,24 @@ export async function POST(request: NextRequest, context: RouteContext) {
         email: requiredString(body?.email, "email"),
         password: requiredString(body?.password, "password"),
         name: typeof body?.name === "string" ? body.name : null
+      });
+      return NextResponse.json({ appUser });
+    }
+
+    if (route.length === 2 && route[0] === "uploads" && route[1] === "profile-image") {
+      const authUser = await getAuthUserFromAuthorizationHeader(request.headers.get("authorization"));
+      const formData = await request.formData();
+      const fileValue = formData.get("file");
+      if (!fileValue || !(fileValue instanceof File)) {
+        throw new ApiError(400, "file is required");
+      }
+
+      const bytes = new Uint8Array(await fileValue.arrayBuffer());
+      const appUser = await uploadProfileImage({
+        userId: authUser.id,
+        fileName: fileValue.name || "profile-image",
+        contentType: fileValue.type || "application/octet-stream",
+        bytes
       });
       return NextResponse.json({ appUser });
     }

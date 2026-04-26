@@ -5,8 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 import { RequireAuth } from "@/components/require-auth";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
+import { uploadProfileImageFile } from "@/lib/profile-image-upload";
 import { User } from "@/lib/types";
-import { Pencil, Save } from "lucide-react";
+import { ImagePlus, Pencil, Save } from "lucide-react";
 
 type ProfileForm = {
   name: string;
@@ -45,6 +46,7 @@ export default function ProfilePage() {
   const { changePassword, currentUserId } = useAuth();
   const [form, setForm] = useState<ProfileForm>(initialForm);
   const [status, setStatus] = useState("No changes");
+  const [imageStatus, setImageStatus] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordStatus, setPasswordStatus] = useState("No password update requested");
@@ -116,6 +118,18 @@ export default function ProfilePage() {
     }
   });
 
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => uploadProfileImageFile(file),
+    onSuccess: async () => {
+      setImageStatus("Profile picture updated.");
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      await queryClient.invalidateQueries({ queryKey: ["user", currentUserId] });
+    },
+    onError: (error) => {
+      setImageStatus(error instanceof Error ? error.message : "Upload failed");
+    }
+  });
+
   const passwordMutation = useMutation({
     mutationFn: async () => {
       const trimmedPassword = newPassword.trim();
@@ -140,7 +154,7 @@ export default function ProfilePage() {
       setPasswordStatus(`Password update failed: ${error.message}`);
     }
   });
-=======
+
   const profileImage = user?.profile?.profileImage || "/images/admin.png";
   const details = useMemo(
     () => [
@@ -167,6 +181,32 @@ export default function ProfilePage() {
             <div className="h-[72vh] min-h-[620px] overflow-hidden rounded-[2.2rem] border border-line bg-panel shadow-2xl">
               <img src={profileImage} alt={user?.name ?? "Profile"} className="h-full w-full object-cover" />
             </div>
+            <div className="mt-3 rounded-2xl border border-line bg-panel/80 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-text">Profile Picture</p>
+                  <p className="text-xs text-muted">PNG, JPG, WEBP up to 5MB</p>
+                  {imageStatus ? <p className="mt-1 text-xs text-muted">{imageStatus}</p> : null}
+                </div>
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-line bg-panelAlt px-4 py-2 text-sm text-text hover:bg-panel">
+                  <ImagePlus className="h-4 w-4" />
+                  Upload
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) {
+                        setImageStatus("");
+                        uploadMutation.mutate(file);
+                      }
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
           </section>
 
           <section className="rounded-3xl border border-line bg-gradient-to-b from-panel to-panelAlt p-5 md:p-6">
@@ -178,7 +218,7 @@ export default function ProfilePage() {
                     {user?.profile?.age ? `${user.profile.age}` : ""}
                   </span>
                 </h2>
-                <p className="text-sm text-muted mt-0.5">{user?.profile?.occupation || "Occupation not set"}</p>
+                <p className="mt-0.5 text-sm text-muted">{user?.profile?.occupation || "Occupation not set"}</p>
                 <p className="text-sm text-muted">{status}</p>
               </div>
               <button
@@ -204,7 +244,7 @@ export default function ProfilePage() {
 
             {!editing ? (
               <div className="mt-6 rounded-2xl border border-line bg-panelAlt p-5 text-sm text-muted">
-                Tap <span className="text-text font-medium">Edit</span> to update attributes.
+                Tap <span className="font-medium text-text">Edit</span> to update attributes.
               </div>
             ) : (
               <div className="mt-5 grid gap-3 md:grid-cols-2">
@@ -252,8 +292,9 @@ export default function ProfilePage() {
               </button>
             ) : null}
 
-            <section className="mt-6 rounded-2xl border border-line bg-panel p-4">
-              <h2 className="text-lg font-semibold text-text">Change Password</h2>
+            <div className="mt-8 rounded-2xl border border-line bg-panelAlt p-4">
+              <h3 className="text-sm font-semibold text-text">Change Password</h3>
+              <p className="mt-1 text-xs text-muted">{passwordStatus}</p>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 <Input
                   label="New Password"
@@ -268,16 +309,15 @@ export default function ProfilePage() {
                   type="password"
                 />
               </div>
-              <div className="mt-2 text-xs text-muted">{passwordStatus}</div>
               <button
                 type="button"
                 onClick={() => passwordMutation.mutate()}
-                disabled={!currentUserId || passwordMutation.isPending}
-                className="mt-4 rounded-md border border-accent/60 bg-accent/10 px-4 py-2 text-sm text-accent disabled:opacity-50"
+                disabled={passwordMutation.isPending}
+                className="mt-4 inline-flex items-center gap-2 rounded-full border border-line bg-panel px-4 py-2 text-sm text-text disabled:opacity-50"
               >
                 {passwordMutation.isPending ? "Updating..." : "Update Password"}
               </button>
-            </section>
+            </div>
           </section>
         </div>
       </div>
@@ -304,10 +344,10 @@ function Input({
     <div>
       <label className="text-xs text-muted">{label}</label>
       <input
+        type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        type={type}
-        className="mt-1 w-full rounded-md border border-line bg-panelAlt px-3 py-2 text-sm"
+        className="mt-1 w-full rounded-xl border border-line bg-panelAlt px-3 py-2 text-sm text-text"
       />
     </div>
   );

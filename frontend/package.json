@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start -p 3000",
     "typecheck": "tsc --noEmit",
-    "seed:women": "node seed-women.mjs"
+    "seed:women": "node seed-women.mjs",
+    "seed:chats": "node seed-chats.mjs"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

@@ -7,7 +7,9 @@ import { RequireAuth } from "@/components/require-auth";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { isProfileComplete } from "@/lib/profile-complete";
+import { uploadProfileImageFile } from "@/lib/profile-image-upload";
 import { User } from "@/lib/types";
+import { ImagePlus } from "lucide-react";
 
 type FormState = {
   name: string;
@@ -51,6 +53,7 @@ export default function ProfileOnboardingPage() {
   const { currentUserId } = useAuth();
   const [status, setStatus] = useState("");
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [imageStatus, setImageStatus] = useState("");
 
   const userQuery = useQuery({
     queryKey: ["user", currentUserId],
@@ -143,6 +146,19 @@ export default function ProfileOnboardingPage() {
     }
   });
 
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => uploadProfileImageFile(file),
+    onSuccess: async () => {
+      setImageStatus("Profile picture uploaded.");
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      await queryClient.invalidateQueries({ queryKey: ["user", currentUserId] });
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : "Upload failed";
+      setImageStatus(message);
+    }
+  });
+
   return (
     <RequireAuth>
       <div className="mx-auto max-w-3xl p-4 md:p-6">
@@ -151,6 +167,33 @@ export default function ProfileOnboardingPage() {
           <p className="mt-1 text-sm text-muted">
             Fill all required attributes to unlock Home and matching.
           </p>
+
+          <div className="mt-4 rounded-2xl border border-line bg-panelAlt p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-text">Profile Picture</p>
+                <p className="text-xs text-muted">PNG, JPG, WEBP up to 5MB</p>
+                {imageStatus ? <p className="mt-1 text-xs text-muted">{imageStatus}</p> : null}
+              </div>
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-line bg-panel px-4 py-2 text-sm text-text hover:bg-panelAlt">
+                <ImagePlus className="h-4 w-4" />
+                Upload
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) {
+                      setImageStatus("");
+                      uploadMutation.mutate(file);
+                    }
+                    event.currentTarget.value = "";
+                  }}
+                />
+              </label>
+            </div>
+          </div>
 
           <div className="mt-6 grid gap-3 md:grid-cols-2">
             <Input label="Name" value={form.name} onChange={(value) => setForm((s) => ({ ...s, name: value }))} />

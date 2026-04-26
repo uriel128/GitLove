@@ -15,7 +15,7 @@ export function TopNav() {
   const { currentUser, isSignedIn, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const profileImage = "/images/admin.png";
+  const profileImage = currentUser?.profile?.profileImage || "/images/admin.png";
   
   const isLanding = pathname === "/";
   const isAuth = pathname === "/login";

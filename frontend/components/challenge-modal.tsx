@@ -56,6 +56,25 @@ function hasSyntaxErrors(code: string) {
   return openBraces !== 0 || openParens !== 0;
 }
 
+function isLikelySolved(code: string, starter: string) {
+  const normalized = code.trim();
+  const normalizedStarter = starter.trim();
+  if (!normalized || normalized === normalizedStarter) {
+    return false;
+  }
+
+  if (normalized.length < 35) {
+    return false;
+  }
+
+  const defaultPattern = /\breturn\s+(input|input_data|0|false|\[\]|null|none|nil|vec!\[\])\b/i;
+  if (defaultPattern.test(normalized)) {
+    return false;
+  }
+
+  return true;
+}
+
 export function ChallengeModal({
   challenge,
   busy,
@@ -122,8 +141,8 @@ export function ChallengeModal({
     await new Promise(r => setTimeout(r, 1200));
 
     setSubmitted(true); // Lock it down
-
-    const isPass = currentCode.includes("// pass") || currentCode.includes("# pass");
+    const starter = challenge.starterCode?.[language] ?? LANGUAGE_TEMPLATES[language] ?? "";
+    const isPass = isLikelySolved(currentCode, starter);
     
     if (isPass) {
       pushLog("[SUCCESS] All 42 test cases passed! Build optimized.");

@@ -615,6 +615,155 @@ export async function adminSetTemporaryPassword(userId: string, password: string
   };
 }
 
+const PROFILE_IMAGE_BUCKET = "profile-images";
+
+function inferImageExtension(fileName: string, contentType: string) {
+  const lowerName = fileName.toLowerCase();
+  if (lowerName.endsWith(".png") || contentType === "image/png") {
+    return "png";
+  }
+  if (lowerName.endsWith(".webp") || contentType === "image/webp") {
+    return "webp";
+  }
+  if (
+    lowerName.endsWith(".jpg") ||
+    lowerName.endsWith(".jpeg") ||
+    contentType === "image/jpeg"
+  ) {
+    return "jpg";
+  }
+
+  return "png";
+}
+
+async function ensureProfileImageBucket() {
+  const supabase = getSupabaseAdminClient();
+  const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+  if (listError) {
+    throw new ApiError(500, listError.message);
+  }
+
+  const exists = (buckets ?? []).some((bucket) => bucket.name === PROFILE_IMAGE_BUCKET);
+  if (exists) {
+    return;
+  }
+
+  const { error: createError } = await supabase.storage.createBucket(PROFILE_IMAGE_BUCKET, {
+    public: true,
+    allowedMimeTypes: ["image/png", "image/jpeg", "image/webp"],
+    fileSizeLimit: 5 * 1024 * 1024
+  });
+  if (createError && !createError.message.toLowerCase().includes("already")) {
+    throw new ApiError(500, createError.message);
+  }
+}
+
+async function resolveProfileImageColumn() {
+  const supabase = getSupabaseAdminClient();
+
+  const { error: profileImageUrlProbeError } = await supabase
+    .from("profiles")
+    .select("profile_image_url")
+    .limit(1);
+  if (!profileImageUrlProbeError) {
+    return "profile_image_url" as const;
+  }
+
+  const { error: profileImageProbeError } = await supabase
+    .from("profiles")
+    .select("profile_image")
+    .limit(1);
+  if (!profileImageProbeError) {
+    return "profile_image" as const;
+  }
+
+  // Try to self-heal schema in dev environments when exec_sql RPC is available.
+  const { error: alterError } = await supabase.rpc("exec_sql", {
+    sql: "alter table public.profiles add column if not exists profile_image_url text;"
+  });
+
+  if (!alterError) {
+    const { error: retryProbeError } = await supabase
+      .from("profiles")
+      .select("profile_image_url")
+      .limit(1);
+    if (!retryProbeError) {
+      return "profile_image_url" as const;
+    }
+  }
+
+  throw new ApiError(
+    500,
+    "Missing profile image column on profiles. Run SQL: alter table public.profiles add column if not exists profile_image_url text;"
+  );
+}
+
+export async function uploadProfileImage(input: {
+  userId: string;
+  fileName: string;
+  contentType: string;
+  bytes: Uint8Array;
+}) {
+  const supabase = getSupabaseAdminClient();
+
+  const { data: userRow, error: userError } = await supabase
+    .from("users")
+    .select("id")
+    .eq("id", input.userId)
+    .maybeSingle();
+  if (userError) {
+    throw new ApiError(500, userError.message);
+  }
+  if (!userRow) {
+    throw new ApiError(404, "User not found");
+  }
+
+  const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
+  if (!allowedTypes.has(input.contentType)) {
+    throw new ApiError(400, "Only PNG, JPG, and WEBP images are allowed");
+  }
+  if (input.bytes.byteLength > 5 * 1024 * 1024) {
+    throw new ApiError(400, "Image size must be 5MB or less");
+  }
+
+  await ensureProfileImageBucket();
+
+  const extension = inferImageExtension(input.fileName, input.contentType);
+  const filePath = `${input.userId}/${Date.now()}.${extension}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(PROFILE_IMAGE_BUCKET)
+    .upload(filePath, input.bytes, {
+      contentType: input.contentType,
+      upsert: true
+    });
+  if (uploadError) {
+    throw new ApiError(500, uploadError.message);
+  }
+
+  const { data: publicUrlData } = supabase.storage
+    .from(PROFILE_IMAGE_BUCKET)
+    .getPublicUrl(filePath);
+  const imageUrl = publicUrlData.publicUrl;
+
+  const imageColumn = await resolveProfileImageColumn();
+  const profilePayload: Record<string, unknown> = {
+    user_id: input.userId,
+    updated_at: new Date().toISOString()
+  };
+  profilePayload[imageColumn] = imageUrl;
+
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .upsert(profilePayload, { onConflict: "user_id" });
+
+  if (profileError) {
+    throw new ApiError(500, profileError.message);
+  }
+
+  return getUserById(input.userId);
+}
+
 export async function getHealth() {
   const supabase = getSupabaseAdminClient();
 
