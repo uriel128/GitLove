@@ -433,6 +433,91 @@ export async function updateUserProfile(
   return getUserById(userId);
 }
 
+async function fetchLeetCodeProblem(difficulty: string) {
+  // Convert our difficulty to LeetCode's TitleCase format (EASY -> Easy)
+  const lcDifficulty = difficulty.charAt(0).toUpperCase() + difficulty.slice(1).toLowerCase();
+
+  const randomQuery = `
+    query randomQuestion($categorySlug: String, $filters: QuestionListFilterInput) {
+      randomQuestion(categorySlug: $categorySlug, filters: $filters) {
+        titleSlug
+      }
+    }
+  `;
+  const randomRes = await fetch("https://leetcode.com/graphql", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query: randomQuery,
+      variables: { categorySlug: "", filters: { difficulty: lcDifficulty } }
+    }),
+    cache: "no-store"
+  });
+
+  if (!randomRes.ok) {
+    throw new ApiError(500, "Failed to fetch random question from LeetCode");
+  }
+
+  const randomData = await randomRes.json();
+  const titleSlug = randomData.data?.randomQuestion?.titleSlug;
+
+  if (!titleSlug) {
+    throw new ApiError(500, "Could not find a random question for this difficulty");
+  }
+
+  const questionQuery = `
+    query questionData($titleSlug: String!) {
+      question(titleSlug: $titleSlug) {
+        title
+        titleSlug
+        content
+        difficulty
+        codeSnippets {
+          langSlug
+          code
+        }
+      }
+    }
+  `;
+
+  const questionRes = await fetch("https://leetcode.com/graphql", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query: questionQuery,
+      variables: { titleSlug }
+    }),
+    cache: "no-store"
+  });
+
+  if (!questionRes.ok) {
+    throw new ApiError(500, "Failed to fetch question details from LeetCode");
+  }
+
+  const questionData = await questionRes.json();
+  const q = questionData.data?.question;
+
+  if (!q) {
+    throw new ApiError(500, "Failed to parse question details from LeetCode");
+  }
+
+  const starterCode: Record<string, string> = {};
+  if (Array.isArray(q.codeSnippets)) {
+    for (const snippet of q.codeSnippets) {
+      starterCode[snippet.langSlug] = snippet.code;
+    }
+  }
+
+  return {
+    slug: q.titleSlug,
+    title: q.title,
+    difficulty: q.difficulty.toUpperCase(),
+    description: q.content ?? "",
+    starter_code: starterCode,
+    test_cases: [] // Empty array for now since LeetCode hides actual testcases
+  };
+}
+
 export async function getRandomChallenge(difficulty: string) {
   const normalized = difficulty.toUpperCase();
   if (normalized !== "EASY" && normalized !== "MEDIUM" && normalized !== "HARD") {
@@ -440,21 +525,33 @@ export async function getRandomChallenge(difficulty: string) {
   }
 
   const supabase = getSupabaseAdminClient();
-  const { data: rows, error } = await supabase
+  
+  // 1. Fetch dynamic problem from LeetCode
+  const lcProblem = await fetchLeetCodeProblem(normalized);
+
+  // 2. Upsert into our challenges table to cache it and satisfy Foreign Key constraints
+  const { data: challengeRow, error } = await supabase
     .from("challenges")
+    .upsert(
+      {
+        slug: lcProblem.slug,
+        title: lcProblem.title,
+        difficulty: lcProblem.difficulty,
+        description: lcProblem.description,
+        starter_code: lcProblem.starter_code,
+        test_cases: lcProblem.test_cases,
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: "slug" }
+    )
     .select("*")
-    .eq("difficulty", normalized);
+    .single();
 
   if (error) {
     throw new ApiError(500, error.message);
   }
 
-  if (!rows || rows.length === 0) {
-    throw new ApiError(404, "No challenge available for this difficulty");
-  }
-
-  const challenge = rows[Math.floor(Math.random() * rows.length)];
-  return mapChallenge(challenge);
+  return mapChallenge(challengeRow);
 }
 
 export async function openInterestRequest(challengerId: string, targetId: string) {
