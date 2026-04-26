@@ -62,6 +62,7 @@ function mapProfile(row: any | null) {
     languageChoice: row.language_choice,
     githubUsername: row.github_username,
     vibeBadge: row.vibe_badge,
+    profileImage: row.vibe_badge,
     favoriteFramework: row.favorite_framework,
     favoriteOS: row.favorite_os,
     favoriteDataStructure: row.favorite_data_structure,

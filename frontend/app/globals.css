@@ -18,12 +18,12 @@
   }
 
   .dark {
-    --bg: #0b0f14;
-    --panel: #141b24;
-    --panelAlt: #1a2230;
-    --line: #273245;
+    --bg: #140d1e;
+    --panel: #1b132a;
+    --panelAlt: #241a38;
+    --line: #352652;
     --text: #e5ecf4;
-    --muted: #95a3b8;
+    --muted: #a092b6;
     --ok: #22c55e;
     --warn: #f59e0b;
     --bad: #ef4444;

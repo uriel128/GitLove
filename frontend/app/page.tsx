@@ -63,9 +63,16 @@ const successStories = [
 ];
 
 export default function LandingPage() {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, isReady } = useAuth();
+  const router = useRouter();
   const [activeProfile, setActiveProfile] = useState(0);
   const [activeStory, setActiveStory] = useState(0);
+
+  useEffect(() => {
+    if (isSignedIn) {
+      router.push("/home");
+    }
+  }, [isSignedIn, router]);
 
   useEffect(() => {
     const profileTimer = setInterval(() => {
@@ -80,17 +87,21 @@ export default function LandingPage() {
     };
   }, []);
 
+  if (!isReady || isSignedIn) {
+    return null; // Prevent flash during redirect
+  }
+
   return (
-    <div className="relative min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-[#08060c] dark:via-[#06040a] dark:to-[#06040a] text-slate-900 dark:text-white selection:bg-accent/30 selection:text-white font-sans overflow-x-hidden">
+    <div className="relative min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-[#1a102d] dark:via-[#0d0714] dark:to-[#0a0518] text-slate-900 dark:text-white selection:bg-accent/30 selection:text-white font-sans overflow-x-hidden">
       {/* Dynamic Background Noise */}
       <div className="pointer-events-none absolute inset-0 bg-[url('/noise.png')] opacity-[0.02] mix-blend-overlay" />
 
       {/* Navigation */}
-      <header className="fixed top-0 inset-x-0 z-50 w-full border-b border-black/[0.05] dark:border-transparent bg-slate-50/80 dark:bg-[#08060c]/50 backdrop-blur-xl transition-all">
+      <header className="fixed top-0 inset-x-0 z-50 w-full border-b border-black/[0.05] dark:border-transparent bg-slate-50/80 dark:bg-panel/50 backdrop-blur-xl transition-all">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center bg-white/5 dark:bg-black/5 dark:bg-white/5 p-2 rounded-xl border border-black/10 dark:border-slate-900 dark:border-white/10 shadow-[0_0_15px_rgba(56,189,248,0.15)]">
-              <Logo className="w-5 h-5" />
+            <div className="flex items-center justify-center">
+              <Logo className="w-6 h-6" />
             </div>
             <span className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">GitLove</span>
           </div>

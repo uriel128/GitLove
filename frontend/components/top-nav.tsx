@@ -6,16 +6,28 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { Logo } from "./logo";
 import { ThemeToggle } from "./theme-toggle";
-import { Home, Terminal, GitBranch, MessageSquare, UserCircle } from "lucide-react";
+import { Home, Terminal, GitBranch, MessageSquare, UserCircle, LogOut, Settings } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 
 export function TopNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { currentUser, isSignedIn, logout } = useAuth();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   
   const isLanding = pathname === "/";
   const isAuth = pathname === "/login";
-  const isGuestLanding = !isSignedIn && isLanding;
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   if (isLanding || isAuth) {
     return null;
@@ -25,8 +37,7 @@ export function TopNav() {
     { href: "/home", label: "Home", icon: Home },
     { href: "/build-log", label: "Build Log", icon: Terminal },
     { href: "/stack-trace", label: "Stack Trace", icon: GitBranch },
-    { href: "/chat", label: "Chat", icon: MessageSquare },
-    { href: "/profile", label: "Profile", icon: UserCircle }
+    { href: "/chat", label: "Chat", icon: MessageSquare }
   ];
 
   return (
@@ -35,8 +46,8 @@ export function TopNav() {
         
         {/* Logo Section */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center bg-accent/10 p-1.5 rounded-lg border border-accent/20 shadow-[0_0_10px_rgba(56,189,248,0.1)]">
-            <Logo className="w-4 h-4" />
+          <div className="flex items-center justify-center">
+            <Logo className="w-5 h-5" />
           </div>
           <span className="text-lg font-bold tracking-tight hidden sm:block">GitLove</span>
         </div>
@@ -65,19 +76,60 @@ export function TopNav() {
         </nav>
 
         {/* Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <ThemeToggle />
           <div className="w-px h-6 bg-line hidden sm:block"></div>
-          <button
-            type="button"
-            onClick={() => {
-              logout();
-              router.push("/");
-            }}
-            className="text-xs font-semibold text-muted hover:text-text transition-colors"
-          >
-            Log Out
-          </button>
+          
+          {isSignedIn && currentUser ? (
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="flex items-center gap-2 rounded-full border border-line bg-panelAlt px-2 py-1.5 hover:bg-white/5 transition-colors"
+              >
+                {currentUser.profile?.profileImage ? (
+                  <img src={currentUser.profile.profileImage} alt={currentUser.name} className="w-6 h-6 rounded-full object-cover" />
+                ) : (
+                  <UserCircle className="w-6 h-6 text-muted" />
+                )}
+                <span className="text-sm font-medium text-text hidden sm:block pr-2">
+                  {currentUser.name}
+                </span>
+              </button>
+
+              {dropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 rounded-xl border border-line bg-panel shadow-lg overflow-hidden flex flex-col z-50">
+                  <Link 
+                    href="/profile"
+                    onClick={() => setDropdownOpen(false)}
+                    className="flex items-center gap-2 px-4 py-3 text-sm text-text hover:bg-panelAlt transition-colors"
+                  >
+                    <UserCircle className="w-4 h-4 text-muted" />
+                    Profile
+                  </Link>
+                  <Link 
+                    href="/settings"
+                    onClick={() => setDropdownOpen(false)}
+                    className="flex items-center gap-2 px-4 py-3 text-sm text-text hover:bg-panelAlt transition-colors"
+                  >
+                    <Settings className="w-4 h-4 text-muted" />
+                    Settings
+                  </Link>
+                  <div className="h-px w-full bg-line" />
+                  <button
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      logout();
+                      router.push("/");
+                    }}
+                    className="flex items-center gap-2 px-4 py-3 text-sm text-red-500 hover:bg-red-500/10 transition-colors text-left"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Log Out
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
         
       </div>

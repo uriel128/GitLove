@@ -277,7 +277,7 @@ function AuthContent() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center px-6 py-20 relative overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100 dark:from-[#08060c] dark:via-[#06040a] dark:to-[#06040a]">
+    <div className="min-h-screen flex items-center justify-center px-6 py-20 relative overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100 dark:from-[#1a102d] dark:via-[#0d0714] dark:to-[#0a0518]">
       {/* Global Theme Toggle */}
       <div className="absolute top-6 right-6 z-50">
         <ThemeToggle />

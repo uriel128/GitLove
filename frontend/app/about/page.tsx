@@ -29,7 +29,7 @@ function AboutContent() {
   };
 
   return (
-    <div className="min-h-screen text-text pt-20 bg-gradient-to-b from-slate-50 to-slate-100 dark:from-[#08060c] dark:via-[#06040a] dark:to-[#06040a]">
+    <div className="min-h-screen text-text pt-20 bg-gradient-to-b from-slate-50 to-slate-100 dark:from-[#1a102d] dark:via-[#0d0714] dark:to-[#0a0518]">
       <header className="fixed top-0 inset-x-0 z-50 w-full border-b border-black/[0.05] dark:border-transparent bg-slate-50/80 dark:bg-[#08060c]/50 backdrop-blur-xl transition-all h-16 flex items-center justify-between px-6">
         <Link href="/" className="flex items-center gap-2">
           <div className="flex items-center justify-center bg-accent/10 p-1.5 rounded-lg border border-accent/20">
