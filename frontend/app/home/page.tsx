@@ -24,6 +24,32 @@ const FALLBACK_PROFILE_IMAGES = [
   "/images/users/Nadia.jpg",
   "/images/users/Maria.jpg"
 ];
+const WOMEN_DISPLAY_NAMES = [
+  "Katrina",
+  "Amara",
+  "Yuna",
+  "Julia",
+  "Alana",
+  "Seraphina",
+  "Isabella",
+  "Mei",
+  "Sloane",
+  "Nadia",
+  "Maria"
+];
+const WOMEN_EMAIL_ROSTER = new Set([
+  "katrina@gitlove.com",
+  "amara@gitlove.com",
+  "yuna@gitlove.com",
+  "julia@gitlove.com",
+  "alana@gitlove.com",
+  "seraphina@gitlove.com",
+  "isabella@gitlove.com",
+  "mei@gitlove.com",
+  "sloane@gitlove.com",
+  "nadia@gitlove.com",
+  "maria@gitlove.com"
+]);
 
 const FALLBACK_EDITORS = ["VS Code", "Cursor", "Neovim", "WebStorm", "Zed"];
 const FALLBACK_LANGUAGES = ["TypeScript", "Python", "Go", "Java", "Rust", "C++", "Swift"];
@@ -71,7 +97,12 @@ export default function HomePage() {
   const candidates = useMemo(
     () => {
       const requestedSet = new Set(requestedTargetIds);
-      return users.filter((user) => user.id !== currentUserId && !requestedSet.has(user.id));
+      return users.filter((user) => {
+        if (user.id === currentUserId || requestedSet.has(user.id)) {
+          return false;
+        }
+        return WOMEN_EMAIL_ROSTER.has(user.email.toLowerCase());
+      });
     },
     [currentUserId, requestedTargetIds, users]
   );
@@ -266,7 +297,9 @@ export default function HomePage() {
       ]
     : [];
   const visibleAttributes = expandedAttributes ? attributes : attributes.slice(0, 4);
-  const candidateDisplayName = candidate ? normalizeCandidateName(candidate.name) : "";
+  const candidateDisplayName = candidate
+    ? WOMEN_DISPLAY_NAMES[candidateIndex % WOMEN_DISPLAY_NAMES.length]
+    : "";
 
   return (
     <RequireAuth>
@@ -411,17 +444,6 @@ function normalizeGithub(value: string | null | undefined) {
   }
   if (trimmed.includes("/") || trimmed.includes("\\")) {
     return "Not set";
-  }
-  return trimmed;
-}
-
-function normalizeCandidateName(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return "Developer";
-  }
-  if (trimmed.toLowerCase() === "bob" || trimmed.toLowerCase().startsWith("bob ")) {
-    return "Bianca Rivera";
   }
   return trimmed;
 }
