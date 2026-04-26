@@ -8,6 +8,7 @@ export type UserProfile = {
   languageChoice: string | null;
   githubUsername: string | null;
   vibeBadge: string | null;
+  profileImage: string | null;
   favoriteFramework: string | null;
   favoriteOS: string | null;
   favoriteDataStructure: string | null;
