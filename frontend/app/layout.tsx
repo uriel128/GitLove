@@ -1,8 +1,7 @@
 import "./globals.css";
 import { ReactNode } from "react";
 import { Providers } from "./providers";
-import { MainShell } from "@/components/main-shell";
-import { TopNav } from "@/components/top-nav";
+import { AppChrome } from "@/components/app-chrome";
 
 export const metadata = {
   title: "GitLove",
@@ -14,10 +13,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body>
         <Providers>
-          <div className="min-h-screen bg-bg text-text">
-            <TopNav />
-            <MainShell>{children}</MainShell>
-          </div>
+          <AppChrome>{children}</AppChrome>
         </Providers>
       </body>
     </html>

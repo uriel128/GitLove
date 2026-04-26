@@ -17,6 +17,7 @@ import {
   submitInterestAttempt,
   syncAuthUser,
   provisionAuthUser,
+  devSignupAuthUser,
   updateUserProfile
 } from "@/lib/server/gitlove";
 
@@ -186,6 +187,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const appUser = await provisionAuthUser({
         id: requiredString(body?.id, "id"),
         email: requiredString(body?.email, "email"),
+        name: typeof body?.name === "string" ? body.name : null
+      });
+      return NextResponse.json({ appUser });
+    }
+
+    if (route.length === 2 && route[0] === "auth" && route[1] === "dev-signup") {
+      const body = await parseJson(request);
+      const appUser = await devSignupAuthUser({
+        email: requiredString(body?.email, "email"),
+        password: requiredString(body?.password, "password"),
         name: typeof body?.name === "string" ? body.name : null
       });
       return NextResponse.json({ appUser });
