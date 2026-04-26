@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { Logo } from "./logo";
+import { ThemeToggle } from "./theme-toggle";
 
 const signedInItems = [
   { href: "/", label: "Landing" },
@@ -100,6 +101,7 @@ export function TopNav() {
               Log Out
             </button>
           )}
+          <ThemeToggle />
         </nav>
       </div>
     </header>

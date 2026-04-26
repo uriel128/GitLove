@@ -2,209 +2,406 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogIn, Moon, Sparkles, Sun } from "lucide-react";
-import { useState } from "react";
+import { LogIn, Heart, Code2, Sparkles, Terminal, ChevronRight, CheckCircle2, GitPullRequest, MessageSquareCode, Star } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { Logo } from "@/components/logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const profiles = [
   {
     name: "Nora, 25",
     role: "Frontend Engineer",
     tags: ["React", "TypeScript", "Coffee Dates"],
-    image:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80"
+    image: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80",
+    matchScore: "98%"
+  },
+  {
+    name: "Elena, 24",
+    role: "UI/UX Designer",
+    tags: ["Figma", "CSS", "Art"],
+    image: "/images/elena.png",
+    matchScore: "96%"
+  },
+  {
+    name: "Isabella, 28",
+    role: "Backend Architect",
+    tags: ["Rust", "PostgreSQL", "Dogs"],
+    image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=900&q=80",
+    matchScore: "91%"
+  },
+  {
+    name: "Mia, 26",
+    role: "Fullstack Developer",
+    tags: ["Next.js", "GraphQL", "Travel"],
+    image: "/images/mia.png",
+    matchScore: "89%"
+  }
+];
+
+const successStories = [
+  {
+    names: "David & Emma",
+    text: "We matched over a debate on Spaces vs Tabs. Three months later, we shipped an app together. Now we're moving in.",
+    image: "/images/couple_1.png"
+  },
+  {
+    names: "Michael & Sarah",
+    text: "GitLove is exactly what the tech world needed. It filters out the noise and connects you with people who actually get your lifestyle.",
+    image: "/images/couple_2.png"
+  },
+  {
+    names: "James & Olivia",
+    text: "I thought it was a joke at first, but reviewing someone's React components is genuinely the best icebreaker ever invented.",
+    image: "/images/couple_3.png"
+  },
+  {
+    names: "Ethan & Chloe",
+    text: "Pair programming turned into dinner dates. Two years later, we just pushed our engagement ring to production.",
+    image: "/images/couple_4.png"
   }
 ];
 
 export default function LandingPage() {
   const { isSignedIn } = useAuth();
-  const [isDark, setIsDark] = useState(true);
-  const profile = profiles[0];
+  const [activeProfile, setActiveProfile] = useState(0);
+  const [activeStory, setActiveStory] = useState(0);
+
+  useEffect(() => {
+    const profileTimer = setInterval(() => {
+      setActiveProfile((prev) => (prev + 1) % profiles.length);
+    }, 4000);
+    const storyTimer = setInterval(() => {
+      setActiveStory((prev) => (prev + 1) % successStories.length);
+    }, 6000);
+    return () => {
+      clearInterval(profileTimer);
+      clearInterval(storyTimer);
+    };
+  }, []);
 
   return (
-    <div
-      className={`relative min-h-screen overflow-hidden ${
-        isDark ? "bg-[#09070f] text-[#f4f0ff]" : "bg-[#ffffff] text-[#241338]"
-      }`}
-    >
-      <div
-        className={`pointer-events-none absolute inset-0 ${
-          isDark
-            ? "bg-[radial-gradient(circle_at_15%_0%,rgba(109,40,217,0.25),transparent_45%),radial-gradient(circle_at_90%_10%,rgba(139,92,246,0.18),transparent_40%)]"
-            : "bg-[radial-gradient(circle_at_20%_0%,rgba(167,139,250,0.22),transparent_45%),radial-gradient(circle_at_85%_5%,rgba(196,181,253,0.28),transparent_35%)]"
-        }`}
-      />
+    <div className="relative min-h-screen bg-slate-50 dark:bg-[#06040a] text-slate-900 dark:text-white selection:bg-accent/30 selection:text-slate-900 dark:text-white font-sans overflow-x-hidden">
+      {/* Dynamic Background */}
+      <div className="pointer-events-none absolute inset-0 flex justify-center">
+        <div className="absolute top-0 w-[800px] h-[500px] bg-accent/20 blur-[120px] rounded-full mix-blend-screen opacity-50 animate-pulse" />
+        <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-purple-600/20 blur-[150px] rounded-full mix-blend-screen opacity-40" />
+        <div className="absolute top-[20%] right-[-10%] w-[600px] h-[600px] bg-pink-600/20 blur-[150px] rounded-full mix-blend-screen opacity-40" />
+        <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.03] mix-blend-overlay" />
+      </div>
 
-      <section id="home" className="relative mx-auto w-full max-w-6xl px-4 pb-24 pt-6 md:px-8">
-        <div
-          className={`mb-10 flex items-center justify-between rounded-full border px-3 py-2 ${
-            isDark ? "border-violet-400/30 bg-[#120d1f]/92" : "border-violet-200 bg-white/90"
-          }`}
-        >
-          <div className="flex items-center gap-2 px-2">
-            <Logo className="h-[18px] w-[18px]" />
-            <span className="text-sm font-semibold tracking-wide">GitLove</span>
+      {/* Navigation */}
+      <header className="fixed top-0 inset-x-0 z-50 w-full border-b border-black/[0.05] dark:border-slate-900 dark:border-white/[0.05] bg-slate-50 dark:bg-[#06040a]/60 backdrop-blur-2xl transition-all">
+        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center bg-white/5 dark:bg-black/5 dark:bg-white/5 p-2 rounded-xl border border-black/10 dark:border-slate-900 dark:border-white/10 shadow-[0_0_15px_rgba(56,189,248,0.15)]">
+              <Logo className="w-5 h-5" />
+            </div>
+            <span className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">GitLove</span>
           </div>
-          <nav className="flex items-center gap-1">
-            <a
-              href="#home"
-              className="rounded-full bg-violet-600 px-4 py-1.5 text-sm text-white"
-            >
-              Home
-            </a>
-            <a
-              href="#about"
-              className={`rounded-full px-4 py-1.5 text-sm ${
-                isDark ? "text-white/85 hover:bg-white/10" : "text-violet-900 hover:bg-violet-50"
-              }`}
-            >
-              About
-            </a>
-            <a
-              href="#contact"
-              className={`rounded-full px-4 py-1.5 text-sm ${
-                isDark ? "text-white/85 hover:bg-white/10" : "text-violet-900 hover:bg-violet-50"
-              }`}
-            >
-              Contact
-            </a>
-          </nav>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsDark((prev) => !prev)}
-              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border ${
-                isDark ? "border-violet-400/35 text-white" : "border-violet-200 text-violet-800"
-              }`}
-              aria-label="Toggle theme"
-            >
-              {isDark ? <Sun size={14} /> : <Moon size={14} />}
-            </button>
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
             <Link
-              href="/login"
-              className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-1.5 text-sm font-medium text-white"
+              href="/login?mode=signup"
+              className="group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-accent/10 px-6 py-2.5 text-sm font-semibold text-accent backdrop-blur-md transition-all hover:bg-accent/20 hover:scale-105 active:scale-95 border border-accent/20 hover:border-accent/40"
             >
-              <LogIn size={14} />
-              Login
+              <span>Sign In</span>
+              <LogIn className="w-4 h-4 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
         </div>
+      </header>
 
-        <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
-          <div>
-            <p
-              className={`mb-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ${
-                isDark ? "bg-violet-500/20 text-violet-100" : "bg-violet-100 text-violet-900"
-              }`}
-            >
-              <Sparkles size={13} className="text-violet-500" />
-              Dating for developers who actually build
-            </p>
-            <h1 className="text-4xl font-bold leading-tight md:text-6xl">
-              Match by vibe,
-              <br />
-              connect by code.
-            </h1>
-            <p
-              className={`mt-4 max-w-xl text-base md:text-lg ${
-                isDark ? "text-white/78" : "text-violet-900/70"
-              }`}
-            >
-              Log in with Supabase Auth, create your account, then enter the GitLove app with a synced user profile.
-            </p>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <Link
-                href="/login"
-                className="rounded-full bg-violet-600 px-6 py-2.5 text-sm font-semibold text-white"
-              >
-                Login
-              </Link>
-              <a
-                href="#about"
-                className={`rounded-full border px-6 py-2.5 text-sm font-semibold ${
-                  isDark ? "border-violet-300/35 text-white/92" : "border-violet-200 text-violet-800"
-                }`}
-              >
-                How It Works
-              </a>
+      <main className="relative z-10">
+        {/* Hero Section */}
+        <section className="relative mx-auto w-full max-w-7xl px-6 pt-24 pb-20 md:pt-28 lg:pt-28">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:items-start">
+            
+            {/* Left Content */}
+            <div className="flex flex-col gap-8 lg:pt-12">
+              <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-1.5 w-fit shadow-[0_0_20px_rgba(56,189,248,0.15)] backdrop-blur-md">
+                <Sparkles className="w-4 h-4 text-accent" />
+                <span className="text-sm font-medium text-accent">The #1 Dating App for Developers</span>
+              </div>
+              
+              <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight leading-[1.1]">
+                Match by <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent via-purple-500 to-pink-500">Vibe</span>,<br />
+                Connect by <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-500 to-accent">Code</span>.
+              </h1>
+              
+              <p className="text-lg md:text-xl text-slate-900/60 dark:text-white/60 max-w-xl leading-relaxed">
+                Stop swiping on empty bios. Find your perfect pair programming partner or romantic match through code snippets, tech stacks, and real developer passion.
+              </p>
+              
+              <div className="flex flex-wrap items-center gap-4">
+                <Link
+                  href="/login"
+                  className="inline-flex h-14 items-center justify-center gap-2 rounded-full bg-gradient-to-r from-accent to-purple-600 px-8 text-base font-bold text-slate-900 dark:text-white shadow-lg shadow-accent/25 transition-all hover:scale-105 hover:shadow-accent/40 active:scale-95"
+                >
+                  <Terminal className="w-5 h-5" />
+                  Start Compiling Love
+                </Link>
+                <a
+                  href="/about?tab=documentation"
+                  className="inline-flex h-14 items-center justify-center gap-2 rounded-full border border-black/10 dark:border-slate-900 dark:border-white/10 bg-white/5 dark:bg-black/5 dark:bg-white/5 px-8 text-base font-semibold text-slate-900 dark:text-white backdrop-blur-md transition-all hover:bg-white/10 dark:bg-black/10 dark:bg-white/10 hover:border-black/20 dark:border-slate-900 dark:border-white/20"
+                >View Documentation
+                </a>
+              </div>
             </div>
 
-            <section
-              className={`mt-8 max-w-xl rounded-[24px] border p-5 ${
-                isDark ? "border-violet-400/25 bg-white/5" : "border-violet-200 bg-white/80"
-              }`}
-            >
-              <h2 className="text-lg font-semibold">Authentication Splash</h2>
-              <p className={`mt-2 text-sm ${isDark ? "text-white/72" : "text-violet-900/70"}`}>
-                The `Login` button now routes to a dedicated splash page where users can sign in with Supabase or create an account before opening the app.
-              </p>
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <div className={`rounded-2xl border p-4 text-sm ${isDark ? "border-violet-400/20 bg-black/20" : "border-violet-200 bg-violet-50/60"}`}>
-                  Supabase email/password auth
-                </div>
-                <div className={`rounded-2xl border p-4 text-sm ${isDark ? "border-violet-400/20 bg-black/20" : "border-violet-200 bg-violet-50/60"}`}>
-                  User sync via `/api/auth/sync`
-                </div>
-                <div className={`rounded-2xl border p-4 text-sm ${isDark ? "border-violet-400/20 bg-black/20" : "border-violet-200 bg-violet-50/60"}`}>
-                  App opens only after a real session exists
-                </div>
-              </div>
-            </section>
-          </div>
-
-          <div className="relative mx-auto w-full max-w-[400px]">
-            <div
-              className={`relative overflow-hidden rounded-[28px] border p-4 shadow-[0_24px_60px_rgba(0,0,0,0.35)] ${
-                isDark ? "border-violet-400/35 bg-[#130d20]" : "border-violet-200 bg-white"
-              }`}
-            >
-              <div className="mb-3 flex items-center justify-between px-1">
-                <span className={`text-xs ${isDark ? "text-white/70" : "text-violet-900/60"}`}>Discover</span>
-                <span className="rounded-full bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white">For You</span>
-              </div>
-
-              <article className="relative h-[460px] overflow-hidden rounded-[18px]">
-                <img src={profile.image} alt={profile.name} className="h-full w-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                <div className="absolute bottom-4 left-4 right-4">
-                  <p className="text-2xl font-semibold text-white">{profile.name}</p>
-                  <p className="mt-1 text-sm text-white/85">{profile.role}</p>
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {profile.tags.map((tag) => (
-                      <span key={tag} className="rounded-full bg-white/90 px-2 py-0.5 text-xs text-violet-900">
-                        {tag}
-                      </span>
-                    ))}
+            {/* Right Content - Mockup */}
+            <div className="relative mx-auto w-full max-w-[360px] aspect-[9/19] perspective-[1000px] mt-8 lg:mt-0">
+              <div className="absolute inset-0 bg-gradient-to-tr from-accent/20 to-purple-600/20 rounded-[40px] blur-2xl transform rotate-3" />
+              
+              <div className="relative w-full h-full rounded-[40px] border border-black/10 dark:border-slate-900 dark:border-white/10 bg-white dark:bg-[#120D1A]/80 backdrop-blur-xl shadow-2xl overflow-hidden flex flex-col transform transition-transform duration-700 hover:-rotate-y-2 hover:rotate-x-2">
+                {/* App Header */}
+                <div className="h-14 flex items-center justify-between px-6 border-b border-black/5 dark:border-slate-900 dark:border-white/5 bg-white/5 dark:bg-black/5 dark:bg-white/5">
+                  <div className="font-semibold tracking-wide text-sm flex items-center gap-2">
+                    <Logo className="w-4 h-4" /> GitLove
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="w-2 h-2 rounded-full bg-white/20 dark:bg-black/20 dark:bg-white/20" />
+                    <div className="w-2 h-2 rounded-full bg-white/20 dark:bg-black/20 dark:bg-white/20" />
+                    <div className="w-2 h-2 rounded-full bg-white/20 dark:bg-black/20 dark:bg-white/20" />
                   </div>
                 </div>
-              </article>
+
+                {/* Card Stack */}
+                <div className="flex-1 p-4 relative">
+                  {profiles.map((profile, idx) => {
+                    const isActive = activeProfile === idx;
+                    const isNext = (activeProfile + 1) % profiles.length === idx;
+                    const isPrev = (activeProfile - 1 + profiles.length) % profiles.length === idx;
+                    
+                    if (!isActive && !isNext && !isPrev) return null;
+
+                    return (
+                      <div 
+                        key={profile.name}
+                        className={`absolute inset-4 rounded-[2rem] overflow-hidden transition-all duration-700 ease-out border border-black/10 dark:border-slate-900 dark:border-white/10 bg-white dark:bg-[#1A1423] shadow-xl flex flex-col ${
+                          isActive ? 'opacity-100 scale-100 translate-y-0 z-20' : 
+                          isNext ? 'opacity-50 scale-95 translate-y-4 z-10' : 
+                          'opacity-0 scale-90 -translate-y-8 z-0'
+                        }`}
+                      >
+                        <div className="relative flex-1 min-h-0">
+                          <img src={profile.image} alt={profile.name} className="w-full h-full object-cover" />
+                          <div className="absolute top-4 right-4 bg-white/50 dark:bg-black/50 backdrop-blur-md rounded-full px-3 py-1 border border-black/10 dark:border-slate-900 dark:border-white/10 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                            <span className="text-xs font-semibold">{profile.matchScore} Match</span>
+                          </div>
+                          <div className="absolute bottom-0 inset-x-0 h-12 bg-gradient-to-t from-[#1A1423] to-transparent pointer-events-none" />
+                        </div>
+                        
+                        <div className="p-5 pt-3 bg-white dark:bg-[#1A1423] shrink-0">
+                          <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            {profile.name}
+                            <CheckCircle2 className="w-5 h-5 text-accent" />
+                          </h3>
+                          <p className="text-slate-900/70 dark:text-white/70 font-medium mt-1">{profile.role}</p>
+                          
+                          <div className="flex flex-wrap gap-2 mt-3">
+                            {profile.tags.map(tag => (
+                              <span key={tag} className="px-3 py-1 rounded-full bg-white/5 dark:bg-black/5 dark:bg-white/5 border border-black/10 dark:border-slate-900 dark:border-white/10 text-xs font-medium text-slate-900/80 dark:text-white/80">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* App Nav */}
+                <div className="h-20 flex justify-center items-center gap-6 px-6 pb-2">
+                  <button className="w-14 h-14 rounded-full bg-white/5 dark:bg-black/5 dark:bg-white/5 border border-black/10 dark:border-slate-900 dark:border-white/10 flex items-center justify-center text-red-400 hover:bg-red-400/10 hover:text-red-300 hover:scale-110 transition-all">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                  </button>
+                  <button className="w-12 h-12 rounded-full bg-white/5 dark:bg-black/5 dark:bg-white/5 border border-black/10 dark:border-slate-900 dark:border-white/10 flex items-center justify-center text-purple-400 hover:bg-purple-400/10 hover:scale-110 transition-all">
+                    <Code2 className="w-5 h-5" />
+                  </button>
+                  <button className="w-14 h-14 rounded-full bg-gradient-to-tr from-accent to-purple-500 shadow-lg shadow-accent/20 flex items-center justify-center text-slate-900 dark:text-white hover:scale-110 hover:shadow-accent/40 transition-all">
+                    <Heart className="w-6 h-6 fill-white" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        {/* Features Section */}
+        <section id="features" className="relative py-24 border-y border-black/5 dark:border-slate-900 dark:border-white/5 bg-slate-100 dark:bg-[#0A0710]">
+          <div className="mx-auto max-w-7xl px-6">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Merge Together Without Conflicts</h2>
+              <p className="mt-4 text-slate-900/60 dark:text-white/60 max-w-2xl mx-auto text-lg">Designed exclusively for software engineers and tech enthusiasts. We speak your language.</p>
+            </div>
+            
+            <div className="grid md:grid-cols-3 gap-8">
+              {[
+                {
+                  icon: <Terminal className="w-6 h-6 text-accent" />,
+                  title: "Solve to Swipe",
+                  desc: "Prove your skills before you match. You must successfully compile and pass a daily Data Structures & Algorithms challenge to unlock the ability to swipe right."
+                },
+                {
+                  icon: <GitPullRequest className="w-6 h-6 text-purple-400" />,
+                  title: "The Build Log",
+                  desc: "Your consistency is your best asset. Showcase your dedication through a visually stunning progression grid tracking the amount of problems you've solved over time."
+                },
+                {
+                  icon: <Code2 className="w-6 h-6 text-pink-400" />,
+                  title: "Stack Matching",
+                  desc: "Find your perfect pair. Match with people who share your exact technology interests, preferred frameworks, and programming languages."
+                }
+              ].map((feature, i) => (
+                <div key={i} className="p-8 rounded-3xl bg-white/[0.02] dark:bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-slate-900 dark:border-white/5 hover:bg-white/[0.04] dark:bg-black/[0.04] dark:bg-white/[0.04] transition-colors relative group overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="w-12 h-12 rounded-2xl bg-white/5 dark:bg-black/5 dark:bg-white/5 flex items-center justify-center mb-6 border border-black/10 dark:border-slate-900 dark:border-white/10 group-hover:scale-110 transition-transform">
+                    {feature.icon}
+                  </div>
+                  <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
+                  <p className="text-slate-900/60 dark:text-white/60 leading-relaxed">{feature.desc}</p>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section id="about" className={`relative border-y ${isDark ? "border-violet-400/20 bg-[#0f0b19]/92" : "border-violet-200 bg-violet-50/45"}`}>
-        <div className="mx-auto w-full max-w-6xl px-4 py-14 md:px-8">
-          <h2 className="text-3xl font-semibold">How GitLove Works</h2>
-          <p className={`mt-2 max-w-2xl ${isDark ? "text-white/70" : "text-violet-900/70"}`}>
-            Keep the spark, remove the noise. Authenticate first, then move into the coding challenge and match flow.
-          </p>
-        </div>
-      </section>
+        {/* Success Stories Transitions Section */}
+        <section className="relative py-24 bg-slate-50 dark:bg-[#06040a] overflow-hidden border-y border-black/5 dark:border-slate-900 dark:border-white/5">
+          <div className="mx-auto max-w-7xl px-6">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Committed to Main</h2>
+              <p className="mt-4 text-slate-900/60 dark:text-white/60 max-w-2xl mx-auto text-lg">See what happens when two developers find their perfect pair.</p>
+            </div>
+            
+            <div className="relative w-full max-w-5xl mx-auto h-[500px] md:h-[400px]">
+              {successStories.map((story, idx) => {
+                const isActive = activeStory === idx;
+                return (
+                  <div 
+                    key={idx}
+                    className={`absolute inset-0 flex flex-col md:flex-row gap-8 md:gap-16 items-center transition-all duration-1000 ease-in-out ${
+                      isActive ? 'opacity-100 translate-x-0 z-10' : 'opacity-0 translate-x-8 z-0 pointer-events-none'
+                    }`}
+                  >
+                    <div className="relative h-64 md:h-[400px] w-full md:w-1/2 rounded-[2rem] overflow-hidden shadow-2xl flex-shrink-0">
+                      <img src={story.image} alt={story.names} className="absolute inset-0 w-full h-full object-cover" />
+                    </div>
+                    <div className="flex flex-col justify-center w-full md:w-1/2 text-center md:text-left">
+                      <Heart className="w-10 h-10 text-accent mb-6 opacity-80 mx-auto md:mx-0" />
+                      <h3 className="text-3xl font-bold mb-4">{story.names}</h3>
+                      <p className="text-xl text-slate-900/70 dark:text-white/70 leading-relaxed italic">"{story.text}"</p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            
+            <div className="flex justify-center gap-3 mt-12">
+              {successStories.map((_, idx) => (
+                <button 
+                  key={idx} 
+                  onClick={() => setActiveStory(idx)}
+                  className={`w-3 h-3 rounded-full transition-all ${activeStory === idx ? 'bg-accent w-8' : 'bg-white/20 dark:bg-black/20 dark:bg-white/20 hover:bg-white/40 dark:bg-black/40 dark:bg-white/40'}`}
+                  aria-label={`Go to story ${idx + 1}`}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
 
-      <section id="contact" className="relative mx-auto w-full max-w-6xl px-4 py-14 md:px-8">
-        <h3 className="text-2xl font-semibold">Contact</h3>
-        <p className={`mt-2 max-w-2xl text-sm ${isDark ? "text-white/72" : "text-violet-900/70"}`}>
-          Questions from your team? Reach out and we can share API contracts and integration notes for Supabase auth and the GitLove app shell.
-        </p>
-        <a
-          href="mailto:team@gitlove.app"
-          className="mt-5 inline-flex rounded-full bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white"
-        >
-          team@gitlove.app
-        </a>
-      </section>
+        {/* Reviews Section */}
+        <section id="reviews" className="relative py-24 bg-[#0a0710]">
+          <div className="mx-auto max-w-7xl px-6">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Code Reviews</h2>
+              <p className="mt-4 text-slate-900/60 dark:text-white/60 max-w-2xl mx-auto text-lg">What the community is saying about GitLove.</p>
+            </div>
+            
+            <div className="grid md:grid-cols-3 gap-8">
+              {[
+                {
+                  quote: "The interface is incredible. I've never seen a dating app that actually understands developer culture this well.",
+                  author: "William",
+                  role: "Security Engineer",
+                  rating: 5,
+                  image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=300&q=80"
+                },
+                {
+                  quote: "I literally found my current co-founder and girlfriend here. Best push to production I've ever made.",
+                  author: "Jessica",
+                  role: "Full Stack Engineer",
+                  rating: 5,
+                  image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=80"
+                },
+                {
+                  quote: "It filters out the noise. The Markdown chat and GitHub integration are game changers for finding a match.",
+                  author: "Ashley",
+                  role: "Frontend Lead",
+                  rating: 5,
+                  image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=300&q=80"
+                }
+              ].map((review, i) => (
+                <div key={i} className="p-8 rounded-3xl bg-white/[0.02] dark:bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-slate-900 dark:border-white/5 relative group">
+                  <div className="flex gap-1 mb-6">
+                    {[...Array(review.rating)].map((_, idx) => (
+                      <Star key={idx} className="w-4 h-4 fill-accent text-accent" />
+                    ))}
+                  </div>
+                  <p className="text-slate-900/80 dark:text-white/80 text-lg leading-relaxed mb-8">"{review.quote}"</p>
+                  <div className="flex items-center gap-4">
+                    <img src={review.image} alt={review.author} className="w-14 h-14 rounded-full object-cover border-2 border-accent/30 shadow-[0_0_15px_rgba(56,189,248,0.2)]" />
+                    <div>
+                      <div className="font-bold">{review.author}</div>
+                      <div className="text-sm text-slate-900/40 dark:text-white/40">{review.role}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section className="relative py-32 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-accent/5 to-transparent" />
+          <div className="relative mx-auto max-w-4xl px-6 text-center">
+            <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-6">Ready to find your <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent to-purple-500">pair programmer?</span></h2>
+            <p className="text-xl text-slate-900/60 dark:text-white/60 mb-10 max-w-2xl mx-auto">
+              Join thousands of developers who have already found their perfect match. Deploy your profile today.
+            </p>
+            <Link
+              href="/login"
+              className="inline-flex h-14 items-center justify-center gap-2 rounded-full bg-white px-8 text-base font-bold text-black shadow-[0_0_40px_rgba(255,255,255,0.3)] transition-all hover:scale-105 hover:shadow-[0_0_60px_rgba(255,255,255,0.5)] active:scale-95"
+            >
+              Create Account
+              <ChevronRight className="w-5 h-5" />
+            </Link>
+          </div>
+        </section>
+      </main>
+      
+      {/* Footer */}
+      <footer className="border-t border-black/5 dark:border-slate-900 dark:border-white/5 bg-slate-50 dark:bg-[#06040a] py-12">
+        <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-2">
+            <Logo className="w-5 h-5" />
+            <span className="text-lg font-bold">GitLove</span>
+          </div>
+          <div className="text-sm text-slate-900/40 dark:text-white/40">
+            © {new Date().getFullYear()} GitLove Inc. All rights reserved.
+          </div>
+          <div className="flex gap-6 text-sm text-slate-900/40 dark:text-white/40">
+            <a href="#" className="hover:text-slate-900 dark:text-white transition-colors">Privacy</a>
+            <a href="#" className="hover:text-slate-900 dark:text-white transition-colors">Terms</a>
+            <a href="mailto:team@gitlove.app" className="hover:text-slate-900 dark:text-white transition-colors">Contact</a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
