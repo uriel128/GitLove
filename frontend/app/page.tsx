@@ -81,17 +81,12 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="relative min-h-screen bg-slate-50 dark:bg-[#06040a] text-slate-900 dark:text-white selection:bg-accent/30 selection:text-slate-900 dark:text-white font-sans overflow-x-hidden">
-      {/* Dynamic Background */}
-      <div className="pointer-events-none absolute inset-0 flex justify-center">
-        <div className="absolute top-0 w-[800px] h-[500px] bg-accent/20 blur-[120px] rounded-full mix-blend-screen opacity-50 animate-pulse" />
-        <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-purple-600/20 blur-[150px] rounded-full mix-blend-screen opacity-40" />
-        <div className="absolute top-[20%] right-[-10%] w-[600px] h-[600px] bg-pink-600/20 blur-[150px] rounded-full mix-blend-screen opacity-40" />
-        <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.03] mix-blend-overlay" />
-      </div>
+    <div className="relative min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-[#08060c] dark:via-[#06040a] dark:to-[#06040a] text-slate-900 dark:text-white selection:bg-accent/30 selection:text-white font-sans overflow-x-hidden">
+      {/* Dynamic Background Noise */}
+      <div className="pointer-events-none absolute inset-0 bg-[url('/noise.png')] opacity-[0.02] mix-blend-overlay" />
 
       {/* Navigation */}
-      <header className="fixed top-0 inset-x-0 z-50 w-full border-b border-black/[0.05] dark:border-slate-900 dark:border-white/[0.05] bg-slate-50 dark:bg-[#06040a]/60 backdrop-blur-2xl transition-all">
+      <header className="fixed top-0 inset-x-0 z-50 w-full border-b border-black/[0.05] dark:border-transparent bg-slate-50/80 dark:bg-[#08060c]/50 backdrop-blur-xl transition-all">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center bg-white/5 dark:bg-black/5 dark:bg-white/5 p-2 rounded-xl border border-black/10 dark:border-slate-900 dark:border-white/10 shadow-[0_0_15px_rgba(56,189,248,0.15)]">
@@ -396,9 +391,9 @@ export default function LandingPage() {
             © {new Date().getFullYear()} GitLove Inc. All rights reserved.
           </div>
           <div className="flex gap-6 text-sm text-slate-900/40 dark:text-white/40">
-            <a href="#" className="hover:text-slate-900 dark:text-white transition-colors">Privacy</a>
-            <a href="#" className="hover:text-slate-900 dark:text-white transition-colors">Terms</a>
-            <a href="mailto:team@gitlove.app" className="hover:text-slate-900 dark:text-white transition-colors">Contact</a>
+            <Link href="/about?tab=privacy" className="hover:text-slate-900 dark:text-white transition-colors">Privacy</Link>
+            <Link href="/about?tab=terms" className="hover:text-slate-900 dark:text-white transition-colors">Terms</Link>
+            <Link href="/about?tab=contact" className="hover:text-slate-900 dark:text-white transition-colors">Contact</Link>
           </div>
         </div>
       </footer>
