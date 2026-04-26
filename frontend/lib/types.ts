@@ -23,6 +23,18 @@ export type User = {
   profile: UserProfile | null;
 };
 
+export type AdminManagedUser = {
+  id: string;
+  email: string;
+  name: string;
+  createdAt: string;
+  lastSignInAt: string | null;
+  providers: string[];
+  hasProfile: boolean;
+  occupation: string | null;
+  challengeLevel: ChallengeDifficulty | null;
+};
+
 export type Challenge = {
   id: string;
   title: string;

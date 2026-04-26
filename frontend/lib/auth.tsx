@@ -35,6 +35,8 @@ type AuthContextValue = {
   ) => Promise<{ signedIn: boolean; requiresConfirmation?: boolean }>;
   loginWithGitHub: () => Promise<void>;
   loginWithGoogle: () => Promise<void>;
+  getAccessToken: () => Promise<string>;
+  changePassword: (password: string) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -211,6 +213,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           options: {
             redirectTo: `${window.location.origin}/onboarding/profile`
           }
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+      },
+      getAccessToken: async () => {
+        const supabase = requireSupabaseClient();
+        const {
+          data: { session },
+          error
+        } = await supabase.auth.getSession();
+
+        if (error || !session?.access_token) {
+          throw new Error(error?.message ?? "You must be logged in");
+        }
+
+        return session.access_token;
+      },
+      changePassword: async (password) => {
+        const supabase = requireSupabaseClient();
+        const normalizedPassword = password.trim();
+
+        if (normalizedPassword.length < 6) {
+          throw new Error("Password must be at least 6 characters");
+        }
+
+        const { error } = await supabase.auth.updateUser({
+          password: normalizedPassword
         });
 
         if (error) {

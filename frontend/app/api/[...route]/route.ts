@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  adminSetTemporaryPassword,
   ApiError,
   cancelInterestRequest,
   createChatMessage,
   getAuthUserFromAuthorizationHeader,
+  listAdminUsers,
   getBuildLog,
   getChatMessages,
   getHealth,
@@ -14,6 +16,7 @@ import {
   getUserById,
   listUsers,
   openInterestRequest,
+  requireAdminUser,
   submitInterestAttempt,
   syncAuthUser,
   provisionAuthUser,
@@ -124,6 +127,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     if (route.length === 1 && route[0] === "users") {
       return NextResponse.json(await listUsers());
+    }
+
+    if (route.length === 2 && route[0] === "admin" && route[1] === "users") {
+      await requireAdminUser(request.headers.get("authorization"));
+      return NextResponse.json(await listAdminUsers());
     }
 
     if (route.length === 2 && route[0] === "users") {
@@ -238,6 +246,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
 
       return NextResponse.json(await createChatMessage(route[1], senderId, content, format));
+    }
+
+    if (route.length === 4 && route[0] === "admin" && route[1] === "users" && route[3] === "password") {
+      await requireAdminUser(request.headers.get("authorization"));
+      const body = await parseJson(request);
+      const password = requiredString(body?.password, "password");
+      return NextResponse.json(await adminSetTemporaryPassword(route[2], password));
     }
 
     return jsonError(404, "Endpoint not found");

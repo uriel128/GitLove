@@ -41,9 +41,12 @@ const initialForm: ProfileForm = {
 
 export default function ProfilePage() {
   const queryClient = useQueryClient();
-  const { currentUserId } = useAuth();
+  const { changePassword, currentUserId } = useAuth();
   const [form, setForm] = useState<ProfileForm>(initialForm);
   const [status, setStatus] = useState("No changes");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordStatus, setPasswordStatus] = useState("No password update requested");
 
   const usersQuery = useQuery({
     queryKey: ["users"],
@@ -114,6 +117,31 @@ export default function ProfilePage() {
     },
     onError: (error) => {
       setStatus(`Save failed: ${error.message}`);
+    }
+  });
+
+  const passwordMutation = useMutation({
+    mutationFn: async () => {
+      const trimmedPassword = newPassword.trim();
+      const trimmedConfirmation = confirmPassword.trim();
+
+      if (!trimmedPassword) {
+        throw new Error("Enter a new password");
+      }
+
+      if (trimmedPassword !== trimmedConfirmation) {
+        throw new Error("Passwords do not match");
+      }
+
+      await changePassword(trimmedPassword);
+    },
+    onSuccess: () => {
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordStatus("Password updated");
+    },
+    onError: (error) => {
+      setPasswordStatus(`Password update failed: ${error.message}`);
     }
   });
 
@@ -212,6 +240,33 @@ export default function ProfilePage() {
           Save Profile
         </button>
       </section>
+
+      <section className="rounded-md border border-line bg-panel p-4">
+        <h2 className="text-lg font-semibold">Change Password</h2>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <Input
+            label="New Password"
+            value={newPassword}
+            onChange={setNewPassword}
+            type="password"
+          />
+          <Input
+            label="Confirm Password"
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            type="password"
+          />
+        </div>
+        <div className="mt-2 text-xs text-muted">{passwordStatus}</div>
+        <button
+          type="button"
+          onClick={() => passwordMutation.mutate()}
+          disabled={!currentUserId || passwordMutation.isPending}
+          className="mt-4 rounded-md border border-accent/60 bg-accent/10 px-4 py-2 text-sm text-accent disabled:opacity-50"
+        >
+          Update Password
+        </button>
+      </section>
       </div>
     </RequireAuth>
   );
@@ -224,11 +279,13 @@ function nullable(value: string) {
 function Input({
   label,
   value,
-  onChange
+  onChange,
+  type = "text"
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  type?: "text" | "password";
 }) {
   return (
     <div>
@@ -236,6 +293,7 @@ function Input({
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        type={type}
         className="mt-1 w-full rounded-md border border-line bg-panelAlt px-3 py-2 text-sm"
       />
     </div>

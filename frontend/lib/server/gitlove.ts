@@ -440,6 +440,117 @@ async function upsertAppUserRecord(userId: string, email: string, name: string) 
   return mapUser(userRow, profileRow ?? null);
 }
 
+function getConfiguredAdminEmail() {
+  return process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase() ?? "";
+}
+
+export async function requireAdminUser(authHeader: string | null) {
+  const authUser = await getAuthUserFromAuthorizationHeader(authHeader);
+  const configuredAdminEmail = getConfiguredAdminEmail();
+  const email = authUser.email?.trim().toLowerCase() ?? "";
+
+  if (!configuredAdminEmail) {
+    throw new ApiError(503, "Admin email is not configured");
+  }
+
+  if (!email || email !== configuredAdminEmail) {
+    throw new ApiError(403, "Admin access is required");
+  }
+
+  return authUser;
+}
+
+export async function listAdminUsers() {
+  const supabase = getSupabaseAdminClient();
+  const appUsers = await listUsers();
+  const appUserById = new Map(appUsers.map((user) => [user.id, user]));
+  const authUsers: SupabaseAuthUser[] = [];
+  let page = 1;
+
+  while (true) {
+    const { data, error } = await supabase.auth.admin.listUsers({
+      page,
+      perPage: 200
+    });
+
+    if (error) {
+      throw new ApiError(500, error.message);
+    }
+
+    const users = data.users ?? [];
+    authUsers.push(...users);
+
+    if (users.length < 200) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  return authUsers
+    .map((authUser) => {
+      const appUser = appUserById.get(authUser.id);
+      const email = authUser.email?.trim().toLowerCase() ?? "";
+      const metadataName =
+        typeof authUser.user_metadata?.name === "string"
+          ? authUser.user_metadata.name
+          : typeof authUser.user_metadata?.full_name === "string"
+            ? authUser.user_metadata.full_name
+            : null;
+      const providers =
+        Array.isArray(authUser.app_metadata?.providers) && authUser.app_metadata.providers.length > 0
+          ? authUser.app_metadata.providers.filter(
+              (provider): provider is string => typeof provider === "string"
+            )
+          : typeof authUser.app_metadata?.provider === "string"
+            ? [authUser.app_metadata.provider]
+            : [];
+
+      return {
+        id: authUser.id,
+        email,
+        name: appUser?.name ?? metadataName?.trim() ?? email.split("@")[0] ?? "Developer",
+        createdAt: authUser.created_at,
+        lastSignInAt: authUser.last_sign_in_at ?? null,
+        providers,
+        hasProfile: Boolean(appUser?.profile),
+        occupation: appUser?.profile?.occupation ?? null,
+        challengeLevel: appUser?.profile?.challengeLevel ?? null
+      };
+    })
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+}
+
+export async function adminSetTemporaryPassword(userId: string, password: string) {
+  const supabase = getSupabaseAdminClient();
+  const normalizedPassword = password.trim();
+
+  if (normalizedPassword.length < 8) {
+    throw new ApiError(400, "Temporary password must be at least 8 characters");
+  }
+
+  const { data: existingUser, error: existingUserError } = await supabase.auth.admin.getUserById(userId);
+  if (existingUserError) {
+    throw new ApiError(500, existingUserError.message);
+  }
+
+  if (!existingUser.user) {
+    throw new ApiError(404, "Auth user not found");
+  }
+
+  const { error } = await supabase.auth.admin.updateUserById(userId, {
+    password: normalizedPassword
+  });
+
+  if (error) {
+    throw new ApiError(500, error.message);
+  }
+
+  return {
+    ok: true
+  };
+}
+
 export async function getHealth() {
   const supabase = getSupabaseAdminClient();
 

@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { ReactNode, useEffect, useState } from "react";
 import { Bell, LockKeyhole, Save, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { RequireAuth } from "@/components/require-auth";
+import { useAuth } from "@/lib/auth";
 
 type SettingsState = {
   notifications: boolean;
@@ -21,8 +23,11 @@ const DEFAULT_SETTINGS: SettingsState = {
 };
 
 export default function SettingsPage() {
+  const { currentUser } = useAuth();
   const [settings, setSettings] = useState<SettingsState>(DEFAULT_SETTINGS);
   const [status, setStatus] = useState("No changes saved");
+  const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase() ?? "";
+  const isAdmin = Boolean(adminEmail) && currentUser?.email.trim().toLowerCase() === adminEmail;
 
   useEffect(() => {
     const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -96,6 +101,21 @@ export default function SettingsPage() {
             Save Settings
           </button>
         </section>
+
+        {isAdmin ? (
+          <section className="rounded-xl border border-line bg-panel px-5 py-4">
+            <h2 className="text-sm font-semibold text-text">Admin Account Controls</h2>
+            <p className="mt-1 text-sm text-muted">
+              Review created accounts and assign temporary passwords from the admin panel.
+            </p>
+            <Link
+              href="/admin"
+              className="mt-4 inline-flex items-center rounded-md border border-accent/60 bg-accent/10 px-4 py-2 text-sm font-medium text-accent"
+            >
+              Open Admin Panel
+            </Link>
+          </section>
+        ) : null}
       </div>
     </RequireAuth>
   );
