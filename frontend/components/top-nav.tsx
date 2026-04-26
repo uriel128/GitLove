@@ -23,8 +23,14 @@ const guestItems = [
 export function TopNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const { isSignedIn, logout } = useAuth();
-  const navItems = isSignedIn ? signedInItems : guestItems;
+  const { currentUser, isSignedIn, logout } = useAuth();
+  const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase() ?? "";
+  const isAdmin = Boolean(adminEmail) && currentUser?.email.trim().toLowerCase() === adminEmail;
+  const navItems = isSignedIn
+    ? isAdmin
+      ? [...signedInItems, { href: "/admin", label: "Admin" }]
+      : signedInItems
+    : guestItems;
   const isLanding = pathname === "/";
   const isGuestLanding = !isSignedIn && isLanding;
 
