@@ -38,7 +38,7 @@ export default function StackTracePage() {
   return (
     <RequireAuth>
       <div className="space-y-5">
-        <section className="rounded-xl border border-line bg-panel px-5 py-4">
+        <section className="rounded-xl border border-line bg-gradient-to-r from-panel via-panelAlt/70 to-panel px-5 py-4">
           <h1 className="text-lg font-semibold text-text">Stack Trace</h1>
           <p className="mt-1 text-sm text-muted">Global platform metrics · auto refresh every 10 seconds</p>
         </section>
@@ -57,7 +57,7 @@ export default function StackTracePage() {
             </section>
 
             <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-              <div className="rounded-xl border border-line bg-panel px-5 py-4">
+              <div className="rounded-xl border border-line bg-gradient-to-r from-panel to-panelAlt px-5 py-4">
                 <div className="mb-3 flex items-center gap-2">
                   <Flame className="h-4 w-4 text-accent" />
                   <h2 className="text-sm font-semibold text-text">Trending Languages</h2>
@@ -80,7 +80,7 @@ export default function StackTracePage() {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-line bg-panel px-5 py-4">
+              <div className="rounded-xl border border-line bg-gradient-to-r from-panel to-panelAlt px-5 py-4">
                 <h2 className="text-sm font-semibold text-text">Pass Rate by Difficulty</h2>
                 <div className="mt-3 space-y-3">
                   <ProgressRow label="Easy" value={data.challengePassRateByDifficulty.EASY} color="bg-emerald-400" />
@@ -90,7 +90,7 @@ export default function StackTracePage() {
               </div>
             </section>
 
-            <section className="rounded-xl border border-line bg-panel px-5 py-4">
+            <section className="rounded-xl border border-line bg-gradient-to-r from-panel to-panelAlt px-5 py-4">
               <h2 className="text-sm font-semibold text-text">Live Merge Ticker</h2>
               <div className="mt-3 space-y-2">
                 {data.liveMerges.length === 0 ? (
@@ -124,7 +124,7 @@ function MetricTile({
   value: string | number;
 }) {
   return (
-    <div className="rounded-xl border border-line bg-panel px-4 py-3">
+    <div className="rounded-xl border border-line bg-gradient-to-br from-panel to-panelAlt px-4 py-3">
       <div className="flex items-center justify-between text-xs text-muted">
         <span>{label}</span>
         {icon}

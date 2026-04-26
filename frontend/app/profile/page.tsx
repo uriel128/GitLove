@@ -6,7 +6,7 @@ import { RequireAuth } from "@/components/require-auth";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { User } from "@/lib/types";
-import { Code2, Pencil, Save } from "lucide-react";
+import { Pencil, Save } from "lucide-react";
 
 type ProfileForm = {
   name: string;
@@ -136,37 +136,21 @@ export default function ProfilePage() {
       <div className="mx-auto max-w-5xl p-4 md:p-6">
         <div className="grid gap-6 lg:grid-cols-[460px_1fr]">
           <section className="mx-auto w-full max-w-[460px]">
-            <div className="relative h-[72vh] min-h-[620px] overflow-hidden rounded-[2.2rem] border border-line bg-panel shadow-2xl">
+            <div className="h-[72vh] min-h-[620px] overflow-hidden rounded-[2.2rem] border border-line bg-panel shadow-2xl">
               <img src={profileImage} alt={user?.name ?? "Profile"} className="h-full w-full object-cover" />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-
-              <div className="absolute bottom-0 left-0 right-0 p-5">
-                <h1 className="text-3xl font-extrabold text-white">
-                  {user?.name ?? "Loading"}
-                  <span className="ml-2 text-xl font-medium text-white/85">
-                    {user?.profile?.age ? `${user.profile.age}` : ""}
-                  </span>
-                </h1>
-                <p className="mt-1 text-sm text-white/80">{user?.profile?.occupation || "Occupation not set"}</p>
-
-                <div className="mt-4 max-h-[40vh] overflow-auto rounded-2xl border border-white/15 bg-black/35 p-3 backdrop-blur-sm">
-                  <div className="grid grid-cols-1 gap-2">
-                    {details.map(([label, value]) => (
-                      <div key={label} className="flex items-start justify-between gap-3 text-xs">
-                        <span className="text-white/60">{label}</span>
-                        <span className="text-right font-medium text-white">{value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
             </div>
           </section>
 
-          <section className="rounded-3xl border border-line bg-panel p-5 md:p-6">
+          <section className="rounded-3xl border border-line bg-gradient-to-b from-panel to-panelAlt p-5 md:p-6">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-xl font-bold text-text">Profile Settings</h2>
+                <h2 className="text-xl font-bold text-text">
+                  {user?.name ?? "Profile"}
+                  <span className="ml-2 text-base font-medium text-muted">
+                    {user?.profile?.age ? `${user.profile.age}` : ""}
+                  </span>
+                </h2>
+                <p className="text-sm text-muted mt-0.5">{user?.profile?.occupation || "Occupation not set"}</p>
                 <p className="text-sm text-muted">{status}</p>
               </div>
               <button
@@ -177,6 +161,17 @@ export default function ProfilePage() {
                 <Pencil className="h-4 w-4" />
                 {editing ? "Close" : "Edit"}
               </button>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-line bg-gradient-to-r from-panelAlt to-panel p-4">
+              <div className="grid grid-cols-1 gap-2.5">
+                {details.map(([label, value]) => (
+                  <div key={label} className="flex items-start justify-between gap-3 text-sm">
+                    <span className="text-muted">{label}</span>
+                    <span className="text-right font-medium text-text">{value}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {!editing ? (
@@ -222,17 +217,12 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => saveMutation.mutate()}
                 disabled={!currentUserId || saveMutation.isPending}
-                className="mt-5 inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                className="mt-5 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-cyan-500 to-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
               >
                 <Save className="h-4 w-4" />
                 {saveMutation.isPending ? "Saving..." : "Save Profile"}
               </button>
-            ) : (
-              <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-line bg-panelAlt px-4 py-2 text-xs text-muted">
-                <Code2 className="h-4 w-4" />
-                Tinder-style profile preview is live.
-              </div>
-            )}
+            ) : null}
           </section>
         </div>
       </div>
