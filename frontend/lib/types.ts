@@ -29,9 +29,7 @@ export type Challenge = {
   slug: string;
   description: string;
   difficulty: ChallengeDifficulty;
-  starterCode: {
-    typescript?: string;
-  } | null;
+  starterCode: Record<string, string> | null;
   testCases: unknown;
 };
 

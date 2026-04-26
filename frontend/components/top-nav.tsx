@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { Logo } from "./logo";
 import { ThemeToggle } from "./theme-toggle";
-import { Home, Terminal, GitBranch, MessageSquare, UserCircle, LogOut, Settings } from "lucide-react";
+import { Home, Terminal, GitBranch, MessageSquare, LogOut, Settings, UserCircle } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 export function TopNav() {
@@ -15,8 +15,7 @@ export function TopNav() {
   const { currentUser, isSignedIn, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const profileImage =
-    (currentUser?.profile as { profileImage?: string | null } | null)?.profileImage ?? null;
+  const profileImage = "/images/admin.png";
   
   const isLanding = pathname === "/";
   const isAuth = pathname === "/login";
@@ -86,16 +85,9 @@ export function TopNav() {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center gap-2 rounded-full border border-line bg-panelAlt px-2 py-1.5 hover:bg-white/5 transition-colors"
+                className="flex items-center rounded-full border border-line bg-panelAlt p-1 hover:bg-white/5 transition-colors"
               >
-                {profileImage ? (
-                  <img src={profileImage} alt={currentUser.name} className="w-6 h-6 rounded-full object-cover" />
-                ) : (
-                  <UserCircle className="w-6 h-6 text-muted" />
-                )}
-                <span className="text-sm font-medium text-text hidden sm:block pr-2">
-                  {currentUser.name}
-                </span>
+                <img src={profileImage} alt={currentUser.name} className="w-8 h-8 rounded-full object-cover" />
               </button>
 
               {dropdownOpen && (

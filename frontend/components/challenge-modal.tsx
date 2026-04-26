@@ -15,6 +15,34 @@ type ChallengeModalProps = {
   onClose: () => void;
 };
 
+const PREFERRED_LANGUAGES = [
+  "typescript",
+  "javascript",
+  "python",
+  "java",
+  "cpp",
+  "c",
+  "csharp",
+  "go",
+  "rust",
+  "kotlin",
+  "swift"
+];
+
+const LANGUAGE_TEMPLATES: Record<string, string> = {
+  typescript: "function solve(input: unknown): unknown {\n  return input;\n}\n",
+  javascript: "function solve(input) {\n  return input;\n}\n",
+  python: "def solve(input_data):\n    return input_data\n",
+  java: "class Solution {\n    public Object solve(Object input) {\n        return input;\n    }\n}\n",
+  cpp: "#include <bits/stdc++.h>\nusing namespace std;\n\nclass Solution {\npublic:\n    int solve(int x) {\n        return x;\n    }\n};\n",
+  c: "#include <stdio.h>\n\nint solve(int x) {\n    return x;\n}\n",
+  csharp: "public class Solution {\n    public object Solve(object input) {\n        return input;\n    }\n}\n",
+  go: "func solve(input any) any {\n    return input\n}\n",
+  rust: "fn solve<T>(input: T) -> T {\n    input\n}\n",
+  kotlin: "class Solution {\n    fun solve(input: Any): Any {\n        return input\n    }\n}\n",
+  swift: "func solve(_ input: Any) -> Any {\n    return input\n}\n"
+};
+
 function hasSyntaxErrors(code: string) {
   let openBraces = 0;
   let openParens = 0;
@@ -37,7 +65,8 @@ export function ChallengeModal({
 }: ChallengeModalProps) {
   const languages = useMemo(() => {
     const keys = Object.keys(challenge.starterCode ?? {});
-    return keys.length > 0 ? keys : ["typescript"];
+    const merged = [...new Set([...keys.map((k) => k.toLowerCase()), ...PREFERRED_LANGUAGES])];
+    return merged;
   }, [challenge.starterCode]);
 
   const [language, setLanguage] = useState(languages.includes("typescript") ? "typescript" : languages[0]);
@@ -45,10 +74,17 @@ export function ChallengeModal({
   const [codeMap, setCodeMap] = useState<Record<string, string>>({});
   
   useEffect(() => {
-    if (challenge.starterCode) {
-      setCodeMap(challenge.starterCode);
-    }
-  }, [challenge.starterCode]);
+    const initial = Object.fromEntries(
+      languages.map((lang) => [
+        lang,
+        challenge.starterCode?.[lang] ??
+          LANGUAGE_TEMPLATES[lang] ??
+          LANGUAGE_TEMPLATES.typescript
+      ])
+    );
+    setCodeMap(initial);
+    setLanguage(initial.typescript ? "typescript" : languages[0]);
+  }, [challenge.starterCode, languages]);
 
   const currentCode = codeMap[language] ?? "";
 

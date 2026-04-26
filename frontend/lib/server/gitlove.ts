@@ -62,13 +62,139 @@ function mapProfile(row: any | null) {
     languageChoice: row.language_choice,
     githubUsername: row.github_username,
     vibeBadge: row.vibe_badge,
-    profileImage: row.vibe_badge,
+    profileImage: row.profile_image_url ?? row.profile_image ?? null,
     favoriteFramework: row.favorite_framework,
     favoriteOS: row.favorite_os,
     favoriteDataStructure: row.favorite_data_structure,
     favoriteAlgorithm: row.favorite_algorithm,
     challengeLevel: (row.challenge_level ?? "EASY") as ChallengeDifficulty
   };
+}
+
+const FALLBACK_CHALLENGES: Record<ChallengeDifficulty, Array<{
+  slug: string;
+  title: string;
+  description: string;
+  difficulty: ChallengeDifficulty;
+  starter_code: Record<string, string>;
+  test_cases: unknown[];
+}>> = {
+  EASY: [
+    {
+      slug: "two-sum-fallback",
+      title: "Two Sum",
+      difficulty: "EASY",
+      description:
+        "<p>Given an array of integers <code>nums</code> and an integer <code>target</code>, return indices of the two numbers such that they add up to target.</p>",
+      starter_code: {
+        typescript: "function twoSum(nums: number[], target: number): number[] {\n  return [];\n}\n",
+        python: "def twoSum(nums, target):\n    return []\n",
+        java: "class Solution {\n    public int[] twoSum(int[] nums, int target) {\n        return new int[]{};\n    }\n}\n",
+        go: "func twoSum(nums []int, target int) []int {\n    return []int{}\n}\n",
+        rust: "impl Solution {\n    pub fn two_sum(nums: Vec<i32>, target: i32) -> Vec<i32> {\n        vec![]\n    }\n}\n"
+      },
+      test_cases: []
+    },
+    {
+      slug: "valid-parentheses-fallback",
+      title: "Valid Parentheses",
+      difficulty: "EASY",
+      description:
+        "<p>Given a string <code>s</code> containing just the characters <code>()[]{}</code>, determine if the input string is valid.</p>",
+      starter_code: {
+        typescript: "function isValid(s: string): boolean {\n  return false;\n}\n",
+        python: "def isValid(s):\n    return False\n",
+        java: "class Solution {\n    public boolean isValid(String s) {\n        return false;\n    }\n}\n",
+        go: "func isValid(s string) bool {\n    return false\n}\n",
+        rust: "impl Solution {\n    pub fn is_valid(s: String) -> bool {\n        false\n    }\n}\n"
+      },
+      test_cases: []
+    },
+    {
+      slug: "merge-two-sorted-lists-fallback",
+      title: "Merge Two Sorted Lists",
+      difficulty: "EASY",
+      description:
+        "<p>Merge two sorted linked lists and return it as a sorted list.</p>",
+      starter_code: {
+        typescript: "function mergeTwoLists(list1: any, list2: any): any {\n  return null;\n}\n",
+        python: "def mergeTwoLists(list1, list2):\n    return None\n",
+        java: "class Solution {\n    public ListNode mergeTwoLists(ListNode list1, ListNode list2) {\n        return null;\n    }\n}\n",
+        go: "func mergeTwoLists(list1 *ListNode, list2 *ListNode) *ListNode {\n    return nil\n}\n",
+        rust: "impl Solution {\n    pub fn merge_two_lists(list1: Option<Box<ListNode>>, list2: Option<Box<ListNode>>) -> Option<Box<ListNode>> {\n        None\n    }\n}\n"
+      },
+      test_cases: []
+    },
+    {
+      slug: "best-time-to-buy-and-sell-stock-fallback",
+      title: "Best Time to Buy and Sell Stock",
+      difficulty: "EASY",
+      description:
+        "<p>You are given an array <code>prices</code> where <code>prices[i]</code> is the price of a given stock on the <code>i</code>th day. Return the maximum profit.</p>",
+      starter_code: {
+        typescript: "function maxProfit(prices: number[]): number {\n  return 0;\n}\n",
+        python: "def maxProfit(prices):\n    return 0\n",
+        java: "class Solution {\n    public int maxProfit(int[] prices) {\n        return 0;\n    }\n}\n",
+        go: "func maxProfit(prices []int) int {\n    return 0\n}\n",
+        rust: "impl Solution {\n    pub fn max_profit(prices: Vec<i32>) -> i32 {\n        0\n    }\n}\n"
+      },
+      test_cases: []
+    },
+    {
+      slug: "contains-duplicate-fallback",
+      title: "Contains Duplicate",
+      difficulty: "EASY",
+      description:
+        "<p>Given an integer array <code>nums</code>, return <code>true</code> if any value appears at least twice in the array.</p>",
+      starter_code: {
+        typescript: "function containsDuplicate(nums: number[]): boolean {\n  return false;\n}\n",
+        python: "def containsDuplicate(nums):\n    return False\n",
+        java: "class Solution {\n    public boolean containsDuplicate(int[] nums) {\n        return false;\n    }\n}\n",
+        go: "func containsDuplicate(nums []int) bool {\n    return false\n}\n",
+        rust: "impl Solution {\n    pub fn contains_duplicate(nums: Vec<i32>) -> bool {\n        false\n    }\n}\n"
+      },
+      test_cases: []
+    }
+  ],
+  MEDIUM: [
+    {
+      slug: "group-anagrams-fallback",
+      title: "Group Anagrams",
+      difficulty: "MEDIUM",
+      description:
+        "<p>Given an array of strings, group the anagrams together. You can return the answer in any order.</p>",
+      starter_code: {
+        typescript: "function groupAnagrams(strs: string[]): string[][] {\n  return [];\n}\n",
+        python: "def groupAnagrams(strs):\n    return []\n",
+        java: "class Solution {\n    public List<List<String>> groupAnagrams(String[] strs) {\n        return new ArrayList<>();\n    }\n}\n",
+        go: "func groupAnagrams(strs []string) [][]string {\n    return [][]string{}\n}\n",
+        rust: "impl Solution {\n    pub fn group_anagrams(strs: Vec<String>) -> Vec<Vec<String>> {\n        vec![]\n    }\n}\n"
+      },
+      test_cases: []
+    }
+  ],
+  HARD: [
+    {
+      slug: "median-of-two-sorted-arrays-fallback",
+      title: "Median of Two Sorted Arrays",
+      difficulty: "HARD",
+      description:
+        "<p>Given two sorted arrays <code>nums1</code> and <code>nums2</code> of size <code>m</code> and <code>n</code>, return the median of the two sorted arrays.</p>",
+      starter_code: {
+        typescript: "function findMedianSortedArrays(nums1: number[], nums2: number[]): number {\n  return 0;\n}\n",
+        python: "def findMedianSortedArrays(nums1, nums2):\n    return 0.0\n",
+        java: "class Solution {\n    public double findMedianSortedArrays(int[] nums1, int[] nums2) {\n        return 0.0;\n    }\n}\n",
+        go: "func findMedianSortedArrays(nums1 []int, nums2 []int) float64 {\n    return 0\n}\n",
+        rust: "impl Solution {\n    pub fn find_median_sorted_arrays(nums1: Vec<i32>, nums2: Vec<i32>) -> f64 {\n        0.0\n    }\n}\n"
+      },
+      test_cases: []
+    }
+  ]
+};
+
+function getFallbackChallenge(difficulty: ChallengeDifficulty) {
+  const pool = FALLBACK_CHALLENGES[difficulty];
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function mapUser(userRow: any, profileRow: any | null) {
@@ -526,21 +652,32 @@ export async function getRandomChallenge(difficulty: string) {
   }
 
   const supabase = getSupabaseAdminClient();
-  
-  // 1. Fetch dynamic problem from LeetCode
-  const lcProblem = await fetchLeetCodeProblem(normalized);
+  const challengeDifficulty = normalized as ChallengeDifficulty;
+  let challengePayload: {
+    slug: string;
+    title: string;
+    difficulty: string;
+    description: string;
+    starter_code: Record<string, string>;
+    test_cases: unknown[];
+  };
 
-  // 2. Upsert into our challenges table to cache it and satisfy Foreign Key constraints
+  try {
+    challengePayload = await fetchLeetCodeProblem(challengeDifficulty);
+  } catch {
+    challengePayload = getFallbackChallenge(challengeDifficulty);
+  }
+
   const { data: challengeRow, error } = await supabase
     .from("challenges")
     .upsert(
       {
-        slug: lcProblem.slug,
-        title: lcProblem.title,
-        difficulty: lcProblem.difficulty,
-        description: lcProblem.description,
-        starter_code: lcProblem.starter_code,
-        test_cases: lcProblem.test_cases,
+        slug: challengePayload.slug,
+        title: challengePayload.title,
+        difficulty: challengePayload.difficulty,
+        description: challengePayload.description,
+        starter_code: challengePayload.starter_code,
+        test_cases: challengePayload.test_cases,
         updated_at: new Date().toISOString()
       },
       { onConflict: "slug" }
