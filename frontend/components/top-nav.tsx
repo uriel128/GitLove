@@ -4,6 +4,7 @@ import clsx from "clsx";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { Logo } from "./logo";
 
 const signedInItems = [
   { href: "/", label: "Landing" },
@@ -41,7 +42,10 @@ export function TopNav() {
   return (
     <header className={clsx("border-b border-line", isGuestLanding ? "bg-transparent" : "bg-panel/90")}>
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 md:px-6">
-        <div className={clsx("text-sm font-semibold tracking-wide", isGuestLanding ? "text-white" : "text-accent")}>GitLove</div>
+        <div className="flex items-center gap-2">
+          <Logo className="w-[18px] h-[18px]" />
+          <div className={clsx("text-sm font-semibold tracking-wide", isGuestLanding ? "text-white" : "text-accent")}>GitLove</div>
+        </div>
         <nav
           className={clsx(
             "flex flex-wrap items-center gap-2 text-sm",

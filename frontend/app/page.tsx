@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Heart, LogIn, Moon, Sparkles, Sun } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { LogIn, Moon, Sparkles, Sun } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { Logo } from "@/components/logo";
 
 const profiles = [
   {
@@ -41,7 +43,7 @@ export default function LandingPage() {
           }`}
         >
           <div className="flex items-center gap-2 px-2">
-            <Heart size={18} className="text-violet-500" />
+            <Logo className="h-[18px] w-[18px]" />
             <span className="text-sm font-semibold tracking-wide">GitLove</span>
           </div>
           <nav className="flex items-center gap-1">
