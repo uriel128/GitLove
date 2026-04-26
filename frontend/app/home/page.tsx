@@ -94,18 +94,23 @@ export default function HomePage() {
   const users = usersQuery.data ?? [];
   const requestedTargetIds = outgoingQuery.data ?? [];
   const currentUser = users.find((user) => user.id === currentUserId) ?? null;
-  const candidates = useMemo(
-    () => {
-      const requestedSet = new Set(requestedTargetIds);
-      return users.filter((user) => {
-        if (user.id === currentUserId || requestedSet.has(user.id)) {
-          return false;
-        }
-        return WOMEN_EMAIL_ROSTER.has(user.email.toLowerCase());
-      });
-    },
-    [currentUserId, requestedTargetIds, users]
-  );
+  const candidates = useMemo(() => {
+    const requestedSet = new Set(requestedTargetIds);
+    const availableUsers = users.filter(
+      (user) => user.id !== currentUserId && !requestedSet.has(user.id)
+    );
+
+    const womenRosterCandidates = availableUsers.filter((user) =>
+      WOMEN_EMAIL_ROSTER.has(user.email.toLowerCase())
+    );
+
+    // Prefer the curated women roster, but never leave Home empty when other users exist.
+    if (womenRosterCandidates.length > 0) {
+      return womenRosterCandidates;
+    }
+
+    return availableUsers;
+  }, [currentUserId, requestedTargetIds, users]);
   const candidate = candidates.length > 0 ? candidates[cursor % candidates.length] : null;
   const candidateImage = useMemo(() => {
     if (!candidate) {
@@ -298,7 +303,9 @@ export default function HomePage() {
     : [];
   const visibleAttributes = expandedAttributes ? attributes : attributes.slice(0, 4);
   const candidateDisplayName = candidate
-    ? WOMEN_DISPLAY_NAMES[candidateIndex % WOMEN_DISPLAY_NAMES.length]
+    ? WOMEN_EMAIL_ROSTER.has(candidate.email.toLowerCase())
+      ? WOMEN_DISPLAY_NAMES[candidateIndex % WOMEN_DISPLAY_NAMES.length]
+      : candidate.name.trim() || "Developer"
     : "";
 
   return (
