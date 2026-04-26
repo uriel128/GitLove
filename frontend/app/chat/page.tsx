@@ -106,7 +106,7 @@ export default function ChatPage() {
   return (
     <RequireAuth>
       <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
-        <section className="rounded-md border border-line bg-panel p-4">
+        <section className="rounded-xl border border-line bg-gradient-to-b from-panel to-panelAlt p-4">
           <h1 className="text-base font-semibold">Chat / Direct Connection</h1>
           <div className="mt-1 text-xs text-muted">Realtime status: {realtimeState}</div>
 
@@ -124,16 +124,16 @@ export default function ChatPage() {
           </select>
         </section>
 
-        <section className="rounded-md border border-line bg-panel p-4">
+        <section className="rounded-xl border border-line bg-gradient-to-b from-panel to-panelAlt p-4">
           <div className="border-b border-line pb-3">
             <h2 className="text-sm text-muted">
               {selectedMatch ? `${selectedMatch.userA.name} and ${selectedMatch.userB.name}` : "No active match"}
             </h2>
           </div>
 
-          <div className="mt-3 h-[48vh] space-y-2 overflow-y-auto rounded-md border border-line bg-panelAlt p-3">
+          <div className="mt-3 h-[48vh] space-y-2 overflow-y-auto rounded-xl border border-line bg-panelAlt/90 p-3">
             {(messagesQuery.data ?? []).map((message) => (
-              <div key={message.id} className="rounded-md border border-line bg-black/20 px-3 py-2">
+              <div key={message.id} className="rounded-lg border border-line bg-gradient-to-r from-panel to-panelAlt px-3 py-2">
                 <div className="text-xs text-muted">
                   {message.sender.name} · {new Date(message.createdAt).toLocaleTimeString()}
                 </div>
@@ -166,7 +166,7 @@ export default function ChatPage() {
               type="button"
               disabled={!matchId || !content.trim() || sendMutation.isPending || realtimeState !== "connected"}
               onClick={() => sendMutation.mutate()}
-              className="rounded-md border border-accent/60 bg-accent/10 px-4 py-2 text-sm text-accent disabled:opacity-50"
+              className="rounded-md border border-cyan-400/60 bg-gradient-to-r from-cyan-500/20 to-fuchsia-500/20 px-4 py-2 text-sm text-accent disabled:opacity-50"
             >
               Send
             </button>

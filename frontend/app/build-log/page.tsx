@@ -56,7 +56,7 @@ export default function BuildLogPage() {
   return (
     <RequireAuth>
       <div className="space-y-5">
-        <section className="rounded-xl border border-line bg-panel px-5 py-4">
+        <section className="rounded-xl border border-line bg-gradient-to-r from-panel via-panelAlt/70 to-panel px-5 py-4">
           <h1 className="text-lg font-semibold text-text">Build Log</h1>
           <p className="mt-1 text-sm text-muted">
             {currentUser ? `${currentUser.name} · ${currentUser.email}` : "Loading account"}
@@ -77,7 +77,7 @@ export default function BuildLogPage() {
               <MetricTile icon={<Clock3 className="h-4 w-4 text-amber-400" />} label="Matches" value={data.systemHealth.matchCount} />
             </section>
 
-            <section className="rounded-xl border border-line bg-panel px-5 py-4">
+            <section className="rounded-xl border border-line bg-gradient-to-r from-panel to-panelAlt px-5 py-4">
               <h2 className="text-sm font-semibold text-text">System Health</h2>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 <ProgressRow label="Pass Rate" value={data.systemHealth.successRate} tone="good" />
@@ -89,7 +89,7 @@ export default function BuildLogPage() {
               </div>
             </section>
 
-            <section className="rounded-xl border border-line bg-panel px-5 py-4">
+            <section className="rounded-xl border border-line bg-gradient-to-r from-panel to-panelAlt px-5 py-4">
               <h2 className="text-sm font-semibold text-text">Pending Pull Requests</h2>
               <div className="mt-3 space-y-2">
                 {data.pendingPullRequests.length === 0 ? (
@@ -114,7 +114,7 @@ export default function BuildLogPage() {
               </div>
             </section>
 
-            <section className="rounded-xl border border-line bg-panel px-5 py-4">
+            <section className="rounded-xl border border-line bg-gradient-to-r from-panel to-panelAlt px-5 py-4">
               <h2 className="text-sm font-semibold text-text">Recent Attempts</h2>
               <div className="mt-3 space-y-2">
                 {data.recentAttempts.length === 0 ? (
@@ -158,7 +158,7 @@ function MetricTile({
   value: string | number;
 }) {
   return (
-    <div className="rounded-xl border border-line bg-panel px-4 py-3">
+    <div className="rounded-xl border border-line bg-gradient-to-br from-panel to-panelAlt px-4 py-3">
       <div className="flex items-center justify-between text-xs text-muted">
         <span>{label}</span>
         {icon}

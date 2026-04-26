@@ -56,7 +56,7 @@ export default function SettingsPage() {
   return (
     <RequireAuth>
       <div className="space-y-6">
-        <section className="rounded-xl border border-line bg-panel px-5 py-4">
+        <section className="rounded-xl border border-line bg-gradient-to-r from-panel via-panelAlt/70 to-panel px-5 py-4">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-5 w-5 text-accent" />
             <h1 className="text-lg font-semibold text-text">Settings</h1>
@@ -91,11 +91,11 @@ export default function SettingsPage() {
           />
         </section>
 
-        <section className="rounded-xl border border-line bg-panel px-5 py-4">
+        <section className="rounded-xl border border-line bg-gradient-to-r from-panel to-panelAlt px-5 py-4">
           <button
             type="button"
             onClick={saveSettings}
-            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white"
+            className="inline-flex items-center gap-2 rounded-md bg-gradient-to-r from-cyan-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white"
           >
             <Save className="h-4 w-4" />
             Save Settings
@@ -133,7 +133,7 @@ function SettingRow({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-line bg-panel px-4 py-4">
+    <div className="flex items-center justify-between rounded-xl border border-line bg-gradient-to-r from-panel to-panelAlt px-4 py-4">
       <div className="flex items-center gap-2">
         {icon}
         <span className="text-sm font-medium text-text">{title}</span>

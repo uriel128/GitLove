@@ -14,10 +14,10 @@ export function MainShell({ children }: { children: ReactNode }) {
     <main
       className={clsx(
         isLandingOrAuth
-          ? "w-full"
+          ? "w-full relative z-10"
           : isDashboard
-          ? "w-full pt-16 h-screen overflow-hidden" // strict bounded layout for dashboard
-          : "mx-auto w-full max-w-7xl px-4 py-6 md:px-6 pt-24" // generic app pages with padding
+          ? "w-full pt-16 h-screen overflow-hidden relative z-10" // strict bounded layout for dashboard
+          : "mx-auto w-full max-w-7xl px-4 py-6 md:px-6 pt-24 relative z-10" // generic app pages with padding
       )}
     >
       {children}

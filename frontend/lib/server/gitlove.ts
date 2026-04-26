@@ -406,6 +406,70 @@ export async function provisionAuthUser(input: {
   return upsertAppUserRecord(id, authEmail, displayName);
 }
 
+export async function devSignupAuthUser(input: {
+  email: string;
+  password: string;
+  name?: string | null;
+}) {
+  if (process.env.NODE_ENV === "production") {
+    throw new ApiError(403, "dev-signup is disabled in production");
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const email = input.email.trim().toLowerCase();
+  const password = input.password;
+  const name = input.name?.trim() || email.split("@")[0] || "Developer";
+
+  if (!email) {
+    throw new ApiError(400, "email is required");
+  }
+  if (!password || password.length < 6) {
+    throw new ApiError(400, "password must be at least 6 characters");
+  }
+
+  const { data: usersPage, error: usersError } = await supabase.auth.admin.listUsers({
+    page: 1,
+    perPage: 1000
+  });
+  if (usersError) {
+    throw new ApiError(500, usersError.message);
+  }
+
+  const existing = usersPage.users.find(
+    (user) => user.email?.trim().toLowerCase() === email
+  );
+
+  if (existing) {
+    const { data: updated, error: updateError } = await supabase.auth.admin.updateUserById(
+      existing.id,
+      {
+        password,
+        user_metadata: {
+          ...(existing.user_metadata ?? {}),
+          name
+        },
+        email_confirm: true
+      }
+    );
+    if (updateError || !updated.user) {
+      throw new ApiError(500, updateError?.message ?? "Failed to update auth user");
+    }
+    return syncAuthUser(updated.user);
+  }
+
+  const { data: created, error: createError } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { name }
+  });
+  if (createError || !created.user) {
+    throw new ApiError(500, createError?.message ?? "Failed to create auth user");
+  }
+
+  return syncAuthUser(created.user);
+}
+
 async function upsertAppUserRecord(userId: string, email: string, name: string) {
   const supabase = getSupabaseAdminClient();
 

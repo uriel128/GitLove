@@ -4,30 +4,30 @@
 
 @layer base {
   :root {
-    --bg: #ffffff;
-    --panel: #f8fafc;
-    --panelAlt: #f1f5f9;
-    --line: #e2e8f0;
+    --bg: #f8f6ff;
+    --panel: #ffffff;
+    --panelAlt: #f4f0ff;
+    --line: #e6defa;
     --text: #0b0f14;
-    --muted: #64748b;
+    --muted: #6b6a88;
     --ok: #22c55e;
     --warn: #f59e0b;
     --bad: #ef4444;
-    --accent: #0ea5e9;
+    --accent: #22c7f2;
     color-scheme: light;
   }
 
   .dark {
-    --bg: #140d1e;
-    --panel: #1b132a;
-    --panelAlt: #241a38;
-    --line: #352652;
+    --bg: #0d0916;
+    --panel: #181226;
+    --panelAlt: #221836;
+    --line: #34265a;
     --text: #e5ecf4;
-    --muted: #a092b6;
+    --muted: #ac9dc8;
     --ok: #22c55e;
     --warn: #f59e0b;
     --bad: #ef4444;
-    --accent: #38bdf8;
+    --accent: #38d6ff;
     color-scheme: dark;
   }
 }
@@ -43,6 +43,14 @@ body {
   background-color: var(--bg);
   color: var(--text);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+.logged-in-gradient {
+  background:
+    radial-gradient(900px 500px at 0% 0%, rgba(56, 214, 255, 0.18), transparent 60%),
+    radial-gradient(850px 500px at 100% 0%, rgba(236, 72, 153, 0.18), transparent 58%),
+    radial-gradient(900px 520px at 50% 100%, rgba(59, 130, 246, 0.14), transparent 62%),
+    var(--bg);
 }
 
 a {

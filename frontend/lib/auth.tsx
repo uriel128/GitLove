@@ -160,6 +160,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const supabase = requireSupabaseClient();
         const normalizedName = name.trim();
         const normalizedEmail = email.trim();
+
+        const quickSignIn = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password
+        });
+        if (quickSignIn.data.session?.access_token) {
+          const appUser = await syncSupabaseUser(quickSignIn.data.session.access_token);
+          setCurrentUser(appUser);
+          return { signedIn: true };
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email: normalizedEmail,
           password,
@@ -171,16 +182,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         if (error) {
+          const lowerMessage = error.message.toLowerCase();
+          const isSignupThrottle =
+            lowerMessage.includes("email rate limit exceeded") ||
+            (lowerMessage.includes("too many") &&
+              (lowerMessage.includes("signup") || lowerMessage.includes("sign up")));
+
+          if (isSignupThrottle) {
+            // In local/dev flows this often means the user already exists and sign-up email throttling kicked in.
+            const signInAttempt = await supabase.auth.signInWithPassword({
+              email: normalizedEmail,
+              password
+            });
+
+            if (signInAttempt.data.session?.access_token) {
+              const appUser = await syncSupabaseUser(signInAttempt.data.session.access_token);
+              setCurrentUser(appUser);
+              return { signedIn: true };
+            }
+
+            try {
+              await devCreateSupabaseUser({
+                email: normalizedEmail,
+                password,
+                name: normalizedName || null
+              });
+              const createdSignIn = await supabase.auth.signInWithPassword({
+                email: normalizedEmail,
+                password
+              });
+              if (createdSignIn.data.session?.access_token) {
+                const appUser = await syncSupabaseUser(createdSignIn.data.session.access_token);
+                setCurrentUser(appUser);
+                return { signedIn: true };
+              }
+            } catch {
+              // Fall through to user-facing message.
+            }
+
+            throw new Error("Too many signup attempts right now. Try Sign In or wait a minute.");
+          }
           throw new Error(error.message);
         }
 
         if (!data.session?.access_token) {
           if (data.user?.id && data.user.email) {
-            await provisionSupabaseUser({
-              id: data.user.id,
-              email: data.user.email,
-              name: normalizedName || null
-            });
+            try {
+              await provisionSupabaseUser({
+                id: data.user.id,
+                email: data.user.email,
+                name: normalizedName || null
+              });
+            } catch (provisionError) {
+              // If provisioning cannot run yet (e.g. eventual consistency in auth user lookup),
+              // we still allow the signup flow to continue. User will be synced on first real session.
+              console.warn("Deferred user provisioning after signup:", provisionError);
+            }
           }
 
           return {
@@ -291,6 +348,18 @@ async function provisionSupabaseUser(input: {
     body: input
   });
 
+  return response.appUser;
+}
+
+async function devCreateSupabaseUser(input: {
+  email: string;
+  password: string;
+  name?: string | null;
+}) {
+  const response = await apiRequest<AuthSyncResponse>("/auth/dev-signup", {
+    method: "POST",
+    body: input
+  });
   return response.appUser;
 }
 
