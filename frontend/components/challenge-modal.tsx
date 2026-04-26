@@ -67,8 +67,18 @@ function isLikelySolved(code: string, starter: string) {
     return false;
   }
 
-  const defaultPattern = /\breturn\s+(input|input_data|0|false|\[\]|null|none|nil|vec!\[\])\b/i;
-  if (defaultPattern.test(normalized)) {
+  const obviousPlaceholderPatterns = [
+    /\breturn\s*\[\s*\]\s*;?\s*$/i,
+    /\breturn\s+false\s*;?\s*$/i,
+    /\breturn\s+0\s*;?\s*$/i,
+    /\breturn\s+null\s*;?\s*$/i,
+    /\breturn\s+none\s*$/i,
+    /\breturn\s+nil\s*$/i,
+    /\breturn\s+input(_data)?\s*;?\s*$/i,
+    /\breturn\s+vec!\[\]\s*;?\s*$/i
+  ];
+
+  if (obviousPlaceholderPatterns.some((pattern) => pattern.test(normalized))) {
     return false;
   }
 
@@ -157,8 +167,8 @@ export function ChallengeModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-      <div className="flex h-[92vh] w-full max-w-7xl flex-col overflow-hidden rounded-lg border border-line bg-panel shadow-2xl">
+    <div className="fixed inset-0 z-[120] flex items-start justify-center bg-black/80 px-4 pb-4 pt-24 backdrop-blur-sm">
+      <div className="flex h-[min(86vh,940px)] w-full max-w-7xl flex-col overflow-hidden rounded-lg border border-line bg-panel shadow-2xl">
         <div className="flex items-center justify-between border-b border-line bg-panelAlt px-4 py-3">
           <div className="min-w-0">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-accent">Challenge Gate</div>

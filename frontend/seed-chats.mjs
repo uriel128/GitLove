@@ -13,119 +13,140 @@ if (!supabaseUrl || !serviceKey) {
 
 const supabase = createClient(supabaseUrl, serviceKey);
 
-const womenEmails = [
-  "katrina@gitlove.com",
-  "amara@gitlove.com",
-  "yuna@gitlove.com",
-  "julia@gitlove.com",
-  "alana@gitlove.com",
-  "seraphina@gitlove.com",
-  "isabella@gitlove.com",
-  "mei@gitlove.com",
-  "sloane@gitlove.com",
-  "nadia@gitlove.com",
-  "maria@gitlove.com"
+const TARGET_MESSAGES_PER_ROOM = 90;
+
+const women = [
+  { email: "katrina@gitlove.com", name: "Katrina", stack: "Next.js + TypeScript", focus: "frontend perf" },
+  { email: "amara@gitlove.com", name: "Amara", stack: "Go + Redis", focus: "platform reliability" },
+  { email: "yuna@gitlove.com", name: "Yuna", stack: "Swift + Firebase", focus: "mobile architecture" },
+  { email: "julia@gitlove.com", name: "Julia", stack: "Kotlin + Spring", focus: "backend APIs" },
+  { email: "alana@gitlove.com", name: "Alana", stack: "Python + Airflow", focus: "data pipelines" },
+  { email: "seraphina@gitlove.com", name: "Seraphina", stack: "Rust + Axum", focus: "security and correctness" },
+  { email: "isabella@gitlove.com", name: "Isabella", stack: "React + Node", focus: "full-stack product delivery" },
+  { email: "mei@gitlove.com", name: "Mei", stack: "PyTorch + FastAPI", focus: "ml serving" },
+  { email: "sloane@gitlove.com", name: "Sloane", stack: "Terraform + Kubernetes", focus: "infra automation" },
+  { email: "nadia@gitlove.com", name: "Nadia", stack: "Vue + TypeScript", focus: "design systems" },
+  { email: "maria@gitlove.com", name: "Maria", stack: "Go + Postgres", focus: "sre and observability" }
 ];
 
-function convo(name) {
-  return [
-    {
-      sender: "admin",
-      format: "MARKDOWN",
-      content:
-        `Hey ${name}, I looked at your profile and noticed your stack is clean. I just finished a refactor from REST handlers to typed route modules and the error boundaries became way easier to reason about. How do you usually structure domain logic in your projects?`
-    },
-    {
-      sender: "target",
-      format: "MARKDOWN",
-      content:
-        "I keep the domain layer isolated and force every API path to call use-cases instead of writing business logic inline. It makes test coverage less painful and helps when product changes happen late."
-    },
-    {
-      sender: "admin",
-      format: "CODE",
-      content:
-        "type CreateMatchInput = { challengerId: string; targetId: string };\n\nexport async function createMatch(input: CreateMatchInput) {\n  const request = await openInterest(input.challengerId, input.targetId);\n  return finalizeHandshake(request.id);\n}"
-    },
-    {
-      sender: "target",
-      format: "MARKDOWN",
-      content:
-        "Nice. I’d probably wrap that with an idempotency key if users can spam clicks. Also I like pushing telemetry at each state transition so analytics stays accurate."
-    },
-    {
-      sender: "admin",
-      format: "MARKDOWN",
-      content:
-        "Agreed. I’m tracking `PENDING_CHALLENGER -> PENDING_RECIPIENT -> MATCHED` now. Next step is adding retry-safe writes for chat notifications."
-    },
-    {
-      sender: "target",
-      format: "CODE",
-      content:
-        "const transition = (state: RequestState, event: Event) => {\n  if (state === 'PENDING_CHALLENGER' && event === 'PASS') return 'PENDING_RECIPIENT';\n  if (state === 'PENDING_RECIPIENT' && event === 'PASS') return 'MATCHED';\n  if (event === 'FAIL') return 'FAILED';\n  return state;\n};"
-    },
-    {
-      sender: "admin",
-      format: "MARKDOWN",
-      content:
-        "This is exactly the style I like. Do you usually unit test these transitions table-driven or with snapshots?"
-    },
-    {
-      sender: "target",
-      format: "MARKDOWN",
-      content:
-        "Table-driven. Snapshots hide intent for state machines. I keep explicit cases so failures are obvious in CI logs."
-    },
-    {
-      sender: "admin",
-      format: "MARKDOWN",
-      content:
-        "Makes sense. I’m also improving challenge evaluation because teammates said correct LC solutions got rejected. I’m replacing fragile checks with a more realistic submission validator in this prototype."
-    },
-    {
-      sender: "target",
-      format: "MARKDOWN",
-      content:
-        "Good move. Nothing kills trust faster than false negatives in coding gates. Even a lightweight deterministic validator is better than magic comments."
-    },
-    {
-      sender: "admin",
-      format: "CODE",
-      content:
-        "const qualitySignals = {\n  changedFromStarter: true,\n  syntaxValid: true,\n  notPlaceholder: true\n};\n\nconst pass = Object.values(qualitySignals).every(Boolean);"
-    },
-    {
-      sender: "target",
-      format: "MARKDOWN",
-      content:
-        "Love it. After that, we can add language-specific runners gradually. Start reliable, then make it strict."
-    }
+function hash(value) {
+  let h = 0;
+  for (let i = 0; i < value.length; i += 1) h = (h * 31 + value.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function rng(seedInput) {
+  let seed = hash(seedInput) || 1;
+  return () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return seed / 4294967296;
+  };
+}
+
+function pick(rand, list) {
+  return list[Math.floor(rand() * list.length)];
+}
+
+function codeSnippet(rand) {
+  const snippets = [
+    "const byId = new Map(rows.map(r => [r.id, r]));\nreturn ids.map(id => byId.get(id)).filter(Boolean);",
+    "await db.tx(async (trx) => {\n  await trx.insert(request);\n  await trx.insert(audit);\n});",
+    "const cacheKey = `match:${userId}`;\nconst cached = await redis.get(cacheKey);\nif (cached) return JSON.parse(cached);",
+    "type Event = { type: 'PASS' | 'FAIL'; at: string };\nconst next = reduceState(current, event);",
+    "SELECT room_id, count(*)\nFROM chat_messages\nWHERE created_at > now() - interval '24 hours'\nGROUP BY room_id;",
+    "if (ctx.signal.aborted) throw new Error('cancelled');\nawait Promise.race([runJob(), timeout(3000)]);"
   ];
+  return pick(rand, snippets);
+}
+
+function buildThread(person) {
+  const rand = rng(person.email);
+  const thread = [];
+
+  const adminOpeners = [
+    `Hey ${person.name}, I was reviewing the ${person.focus} workstream. How do you usually break down tasks in ${person.stack}?`,
+    `Your profile says ${person.stack}. I'm tuning GitLove and trying to tighten ${person.focus}. Want to compare approaches?`,
+    `I’m preparing this release and your stack (${person.stack}) is exactly what we’re debating right now.`
+  ];
+  const targetOpeners = [
+    "I usually start by reducing the blast radius first, then optimize once observability is clean.",
+    "I split by boundary: transport layer, domain rules, and persistence adapters. Keeps regressions obvious.",
+    "For me the key is instrumentation first, then architecture changes."
+  ];
+
+  thread.push({ sender: "admin", format: "MARKDOWN", content: pick(rand, adminOpeners) });
+  thread.push({ sender: "target", format: "MARKDOWN", content: pick(rand, targetOpeners) });
+
+  const adminLines = [
+    "Makes sense. I’ve seen flaky behavior around retries and state transitions in the challenge flow.",
+    "I’m trying to ensure DM creation is idempotent so duplicate swipes don't produce duplicate rooms.",
+    "We also need demo-safe logs. I want clear traces for each request lifecycle event.",
+    "I think we should isolate validators from transport so LC grading can evolve safely.",
+    "I’m caching read-heavy endpoints but avoiding stale match states.",
+    "How strict are you on schema migrations during fast iteration cycles?"
+  ];
+
+  const targetLines = [
+    "For retries, I gate everything with a unique key and optimistic checks in DB.",
+    "I agree on validators. Keep parse/syntax checks separate from correctness checks.",
+    "For migrations, additive first. Backfill async. Remove old columns later.",
+    "Also worth enforcing explicit status enums to avoid hidden invalid states.",
+    "For demo stability, I add targeted synthetic data and verify query plans.",
+    "I’d definitely add room creation in the same logical flow as match transitions."
+  ];
+
+  for (let i = 0; i < 28; i += 1) {
+    thread.push({
+      sender: i % 2 === 0 ? "admin" : "target",
+      format: "MARKDOWN",
+      content: i % 2 === 0 ? pick(rand, adminLines) : pick(rand, targetLines)
+    });
+
+    if (i % 4 === 1) {
+      thread.push({
+        sender: i % 2 === 0 ? "admin" : "target",
+        format: "CODE",
+        content: codeSnippet(rand)
+      });
+    }
+  }
+
+  thread.push({
+    sender: "admin",
+    format: "MARKDOWN",
+    content: `Perfect. I’ll include your ${person.focus} notes in the release checklist for this demo build.`
+  });
+  thread.push({
+    sender: "target",
+    format: "MARKDOWN",
+    content: "Good plan. Ping me if you want one more pass on edge cases before presentation."
+  });
+
+  return thread;
 }
 
 async function getOrCreateChallengeId() {
-  const { data: existing, error: existingError } = await supabase
+  const { data: existing, error } = await supabase
     .from("challenges")
     .select("id")
     .limit(1)
     .maybeSingle();
-  if (existingError) throw existingError;
+  if (error) throw error;
   if (existing?.id) return existing.id;
 
-  const { data: created, error: createError } = await supabase
+  const { data: created, error: insertError } = await supabase
     .from("challenges")
     .insert({
       slug: "seed-two-sum",
       title: "Two Sum",
       difficulty: "EASY",
-      description: "<p>Seed challenge for chat setup</p>",
+      description: "<p>Seed challenge for seeded chats.</p>",
       starter_code: { typescript: "function twoSum(nums:number[], target:number){ return []; }" },
       test_cases: []
     })
     .select("id")
     .single();
-  if (createError) throw createError;
+  if (insertError) throw insertError;
   return created.id;
 }
 
@@ -139,10 +160,7 @@ async function ensureAppUser(authUser) {
 
   const { data, error } = await supabase
     .from("users")
-    .upsert(
-      { id: authUser.id, email, name, updated_at: new Date().toISOString() },
-      { onConflict: "id" }
-    )
+    .upsert({ id: authUser.id, email, name, updated_at: new Date().toISOString() }, { onConflict: "id" })
     .select("*")
     .single();
   if (error) throw error;
@@ -150,20 +168,20 @@ async function ensureAppUser(authUser) {
 }
 
 async function ensureMatchedRoom(challengerId, targetId, challengeId) {
-  const { data: existingRequest, error: requestQueryError } = await supabase
+  const { data: existingRequest, error: requestError } = await supabase
     .from("interest_requests")
     .select("id")
     .eq("challenger_id", challengerId)
     .eq("target_id", targetId)
-    .eq("status", "MATCHED")
+    .in("status", ["PENDING_RECIPIENT", "MATCHED"])
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (requestQueryError) throw requestQueryError;
+  if (requestError) throw requestError;
 
   let requestId = existingRequest?.id;
   if (!requestId) {
-    const { data: newRequest, error: requestInsertError } = await supabase
+    const { data: createdRequest, error: insertRequestError } = await supabase
       .from("interest_requests")
       .insert({
         challenger_id: challengerId,
@@ -175,72 +193,76 @@ async function ensureMatchedRoom(challengerId, targetId, challengeId) {
       })
       .select("id")
       .single();
-    if (requestInsertError) throw requestInsertError;
-    requestId = newRequest.id;
+    if (insertRequestError) throw insertRequestError;
+    requestId = createdRequest.id;
   }
 
-  const { data: existingMatch, error: matchQueryError } = await supabase
+  const { data: existingMatch, error: matchError } = await supabase
     .from("matches")
     .select("id")
     .eq("request_id", requestId)
     .maybeSingle();
-  if (matchQueryError) throw matchQueryError;
+  if (matchError) throw matchError;
 
   let matchId = existingMatch?.id;
   if (!matchId) {
-    const { data: newMatch, error: matchInsertError } = await supabase
+    const { data: createdMatch, error: insertMatchError } = await supabase
       .from("matches")
-      .insert({
-        request_id: requestId,
-        user_a_id: challengerId,
-        user_b_id: targetId
-      })
+      .insert({ request_id: requestId, user_a_id: challengerId, user_b_id: targetId })
       .select("id")
       .single();
-    if (matchInsertError) throw matchInsertError;
-    matchId = newMatch.id;
+    if (insertMatchError) throw insertMatchError;
+    matchId = createdMatch.id;
   }
 
-  const { data: existingRoom, error: roomQueryError } = await supabase
+  const { data: existingRoom, error: roomError } = await supabase
     .from("chat_rooms")
     .select("id")
     .eq("match_id", matchId)
     .maybeSingle();
-  if (roomQueryError) throw roomQueryError;
+  if (roomError) throw roomError;
 
   if (existingRoom?.id) return existingRoom.id;
 
-  const { data: newRoom, error: roomInsertError } = await supabase
+  const { data: createdRoom, error: insertRoomError } = await supabase
     .from("chat_rooms")
     .insert({ match_id: matchId })
     .select("id")
     .single();
-  if (roomInsertError) throw roomInsertError;
-  return newRoom.id;
+  if (insertRoomError) throw insertRoomError;
+  return createdRoom.id;
 }
 
-async function seedConversation(roomId, adminId, targetId, targetName) {
+async function seedConversation(roomId, adminId, targetId, person) {
   const { count, error: countError } = await supabase
     .from("chat_messages")
     .select("id", { count: "exact", head: true })
     .eq("room_id", roomId);
   if (countError) throw countError;
 
-  if ((count || 0) >= 12) {
-    return false;
+  const existingCount = count || 0;
+  if (existingCount >= TARGET_MESSAGES_PER_ROOM) return 0;
+
+  const thread = buildThread(person);
+  const needed = TARGET_MESSAGES_PER_ROOM - existingCount;
+  const toInsert = thread.slice(0, needed);
+  const startMs = Date.now() - 1000 * 60 * (existingCount + needed) * 20;
+
+  const rows = [];
+  for (let i = 0; i < toInsert.length; i += 1) {
+    const msg = toInsert[i];
+    rows.push({
+      room_id: roomId,
+      sender_id: msg.sender === "admin" ? adminId : targetId,
+      content: msg.content,
+      format: msg.format,
+      created_at: new Date(startMs + i * 1000 * 60 * (8 + (i % 9))).toISOString()
+    });
   }
 
-  const messages = convo(targetName).map((entry, index) => ({
-    room_id: roomId,
-    sender_id: entry.sender === "admin" ? adminId : targetId,
-    content: entry.content,
-    format: entry.format,
-    created_at: new Date(Date.now() - (12 - index) * 60_000).toISOString()
-  }));
-
-  const { error: insertError } = await supabase.from("chat_messages").insert(messages);
+  const { error: insertError } = await supabase.from("chat_messages").insert(rows);
   if (insertError) throw insertError;
-  return true;
+  return rows.length;
 }
 
 async function main() {
@@ -253,27 +275,28 @@ async function main() {
   const authUsers = authUsersPage.users || [];
   const adminAuth = authUsers.find((u) => (u.email || "").toLowerCase() === "admin@gitlove.com");
   if (!adminAuth) {
-    throw new Error("admin@gitlove.com not found in Supabase Auth. Create admin first.");
+    throw new Error("admin@gitlove.com not found in Supabase Auth.");
   }
 
   const adminApp = await ensureAppUser(adminAuth);
   const challengeId = await getOrCreateChallengeId();
 
-  let seeded = 0;
-  for (const email of womenEmails) {
-    const targetAuth = authUsers.find((u) => (u.email || "").toLowerCase() === email);
+  let totalInserted = 0;
+  for (const person of women) {
+    const targetAuth = authUsers.find((u) => (u.email || "").toLowerCase() === person.email);
     if (!targetAuth) {
-      console.log(`Skip ${email}: auth user not found`);
+      console.log(`Skip ${person.email}: auth user not found`);
       continue;
     }
+
     const targetApp = await ensureAppUser(targetAuth);
     const roomId = await ensureMatchedRoom(adminApp.id, targetApp.id, challengeId);
-    const didSeed = await seedConversation(roomId, adminApp.id, targetApp.id, targetApp.name);
-    if (didSeed) seeded += 1;
-    console.log(`Conversation ready for ${targetApp.name} (${email})`);
+    const inserted = await seedConversation(roomId, adminApp.id, targetApp.id, person);
+    totalInserted += inserted;
+    console.log(`${person.name}: +${inserted} messages`);
   }
 
-  console.log(`Done. Seeded/updated ${seeded} chat threads.`);
+  console.log(`Done. Inserted ${totalInserted} messages total.`);
 }
 
 main().catch((error) => {

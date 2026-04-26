@@ -11,6 +11,7 @@ import {
   getHealth,
   getMatchesForUser,
   getPendingForUser,
+  getOutgoingRequestedTargetIds,
   getRandomChallenge,
   getStackTrace,
   getUserById,
@@ -22,6 +23,7 @@ import {
   provisionAuthUser,
   uploadProfileImage,
   devSignupAuthUser,
+  seedDemoChatsForUser,
   updateUserProfile
 } from "@/lib/server/gitlove";
 
@@ -148,6 +150,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json(await getPendingForUser(route[2]));
     }
 
+    if (route.length === 3 && route[0] === "interest" && route[1] === "outgoing") {
+      return NextResponse.json(await getOutgoingRequestedTargetIds(route[2]));
+    }
+
     if (route.length === 3 && route[0] === "chat" && route[2] === "messages") {
       const userId = request.nextUrl.searchParams.get("userId");
       if (!userId) {
@@ -263,6 +269,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const body = await parseJson(request);
       const challengerId = requiredString(body?.challengerId, "challengerId");
       return NextResponse.json(await cancelInterestRequest(route[1], challengerId));
+    }
+
+    if (route.length === 3 && route[0] === "chat" && route[1] === "seed-demo" && route[2] === "messages") {
+      const body = await parseJson(request);
+      const userId = requiredString(body?.userId, "userId");
+      return NextResponse.json(await seedDemoChatsForUser(userId));
     }
 
     if (route.length === 3 && route[0] === "chat" && route[2] === "messages") {

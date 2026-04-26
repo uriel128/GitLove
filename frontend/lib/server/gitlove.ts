@@ -1,4 +1,5 @@
 import { User as SupabaseAuthUser } from "@supabase/supabase-js";
+import { randomUUID } from "crypto";
 import { getSupabaseAdminClient, getSupabaseAnonServerClient } from "@/lib/supabase/server";
 
 type ChallengeDifficulty = "EASY" | "MEDIUM" | "HARD";
@@ -1072,10 +1073,26 @@ export async function openInterestRequest(challengerId: string, targetId: string
     throw new ApiError(404, "Target user not found");
   }
 
+  const supabase = getSupabaseAdminClient();
+  const { data: existingRequest, error: existingRequestError } = await supabase
+    .from("interest_requests")
+    .select("id")
+    .eq("challenger_id", challengerId)
+    .eq("target_id", targetId)
+    .in("status", ["PENDING_CHALLENGER", "PENDING_RECIPIENT", "MATCHED"])
+    .limit(1)
+    .maybeSingle();
+
+  if (existingRequestError) {
+    throw new ApiError(500, existingRequestError.message);
+  }
+  if (existingRequest?.id) {
+    throw new ApiError(400, "You already requested this user");
+  }
+
   const difficulty = challenger.profile?.challengeLevel ?? "EASY";
   const challenge = await getRandomChallenge(difficulty);
 
-  const supabase = getSupabaseAdminClient();
   const { data: requestRow, error: requestError } = await supabase
     .from("interest_requests")
     .insert({
@@ -1100,6 +1117,35 @@ export async function openInterestRequest(challengerId: string, targetId: string
     starter_code: challenge.starterCode,
     test_cases: challenge.testCases
   });
+}
+
+async function ensureMatchRoomForRequest(requestId: string, challengerId: string, targetId: string) {
+  const supabase = getSupabaseAdminClient();
+
+  const { data: matchRow, error: matchError } = await supabase
+    .from("matches")
+    .upsert(
+      {
+        request_id: requestId,
+        user_a_id: challengerId,
+        user_b_id: targetId
+      },
+      { onConflict: "request_id" }
+    )
+    .select("id")
+    .single();
+
+  if (matchError) {
+    throw new ApiError(500, matchError.message);
+  }
+
+  const { error: roomError } = await supabase
+    .from("chat_rooms")
+    .upsert({ match_id: matchRow.id }, { onConflict: "match_id" });
+
+  if (roomError) {
+    throw new ApiError(500, roomError.message);
+  }
 }
 
 export async function submitInterestAttempt(
@@ -1187,6 +1233,13 @@ export async function submitInterestAttempt(
       throw new ApiError(500, updatedRequestError.message);
     }
 
+    // Create the DM thread immediately after successful first solve.
+    await ensureMatchRoomForRequest(
+      updatedRequest.id,
+      updatedRequest.challenger_id,
+      updatedRequest.target_id
+    );
+
     const challengeRow = await getChallengeById(updatedRequest.challenge_id);
     return mapInterestRequest(updatedRequest, challengeRow);
   }
@@ -1205,45 +1258,29 @@ export async function submitInterestAttempt(
     throw new ApiError(500, matchedRequestError.message);
   }
 
-  const { data: existingMatch, error: existingMatchError } = await supabase
-    .from("matches")
-    .select("id")
-    .eq("request_id", requestId)
-    .maybeSingle();
-
-  if (existingMatchError) {
-    throw new ApiError(500, existingMatchError.message);
-  }
-
-  let matchId = existingMatch?.id;
-  if (!matchId) {
-    const { data: createdMatch, error: createMatchError } = await supabase
-      .from("matches")
-      .insert({
-        request_id: requestId,
-        user_a_id: requestRow.challenger_id,
-        user_b_id: requestRow.target_id
-      })
-      .select("id")
-      .single();
-
-    if (createMatchError) {
-      throw new ApiError(500, createMatchError.message);
-    }
-
-    matchId = createdMatch.id;
-  }
-
-  const { error: roomError } = await supabase
-    .from("chat_rooms")
-    .upsert({ match_id: matchId }, { onConflict: "match_id" });
-
-  if (roomError) {
-    throw new ApiError(500, roomError.message);
-  }
+  await ensureMatchRoomForRequest(
+    matchedRequest.id,
+    matchedRequest.challenger_id,
+    matchedRequest.target_id
+  );
 
   const challengeRow = await getChallengeById(matchedRequest.challenge_id);
   return mapInterestRequest(matchedRequest, challengeRow);
+}
+
+export async function getOutgoingRequestedTargetIds(userId: string) {
+  const supabase = getSupabaseAdminClient();
+  const { data: rows, error } = await supabase
+    .from("interest_requests")
+    .select("target_id")
+    .eq("challenger_id", userId)
+    .in("status", ["PENDING_CHALLENGER", "PENDING_RECIPIENT", "MATCHED"]);
+
+  if (error) {
+    throw new ApiError(500, error.message);
+  }
+
+  return [...new Set((rows ?? []).map((row) => row.target_id))];
 }
 
 export async function cancelInterestRequest(requestId: string, challengerId: string) {
@@ -1481,6 +1518,252 @@ export async function createChatMessage(
 
   const senderRows = await getUserRowsByIds([senderId]);
   return mapChatMessage(messageRow, senderRows[0] ?? null);
+}
+
+export async function seedDemoChatsForUser(userId: string) {
+  const supabase = getSupabaseAdminClient();
+
+  const user = await getUserById(userId);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  const roster = [
+    { email: "katrina@gitlove.com", name: "Katrina", occupation: "Frontend Engineer", language: "TypeScript", framework: "Next.js" },
+    { email: "amara@gitlove.com", name: "Amara", occupation: "Platform Engineer", language: "Go", framework: "Gin" },
+    { email: "yuna@gitlove.com", name: "Yuna", occupation: "Mobile Engineer", language: "Swift", framework: "SwiftUI" },
+    { email: "julia@gitlove.com", name: "Julia", occupation: "Backend Developer", language: "Kotlin", framework: "Spring Boot" },
+    { email: "alana@gitlove.com", name: "Alana", occupation: "Data Engineer", language: "Python", framework: "FastAPI" },
+    { email: "seraphina@gitlove.com", name: "Seraphina", occupation: "Security Engineer", language: "Rust", framework: "Axum" },
+    { email: "isabella@gitlove.com", name: "Isabella", occupation: "Full-Stack Engineer", language: "TypeScript", framework: "React" },
+    { email: "mei@gitlove.com", name: "Mei", occupation: "AI Engineer", language: "Python", framework: "PyTorch" },
+    { email: "sloane@gitlove.com", name: "Sloane", occupation: "Cloud Engineer", language: "Go", framework: "Terraform" },
+    { email: "nadia@gitlove.com", name: "Nadia", occupation: "Frontend Architect", language: "TypeScript", framework: "Vue" },
+    { email: "maria@gitlove.com", name: "Maria", occupation: "Site Reliability Engineer", language: "Go", framework: "Kubernetes" }
+  ];
+
+  const candidateEmails = roster.map((person) => person.email);
+  const { data: existingWomenRows, error: womenError } = await supabase
+    .from("users")
+    .select("id, email, name")
+    .in("email", candidateEmails);
+  if (womenError) {
+    throw new ApiError(500, womenError.message);
+  }
+
+  const existingByEmail = new Map((existingWomenRows ?? []).map((row) => [row.email, row]));
+  const missingWomen = roster.filter((person) => !existingByEmail.has(person.email));
+
+  for (const person of missingWomen) {
+    const createdUserId = randomUUID();
+    const { error: insertUserError } = await supabase.from("users").insert({
+      id: createdUserId,
+      email: person.email,
+      name: person.name
+    });
+    if (insertUserError) {
+      throw new ApiError(500, insertUserError.message);
+    }
+
+    const { error: insertProfileError } = await supabase.from("profiles").upsert(
+      {
+        user_id: createdUserId,
+        occupation: person.occupation,
+        age: 26,
+        hobbies: ["Coding", "Coffee", "Travel"],
+        editor_choice: "VS Code",
+        language_choice: person.language,
+        github_username: person.name.toLowerCase(),
+        vibe_badge: "Real Developer",
+        favorite_framework: person.framework,
+        favorite_os: "macOS",
+        favorite_data_structure: "Hash Map",
+        favorite_algorithm: "Two Pointers",
+        challenge_level: "EASY"
+      },
+      { onConflict: "user_id" }
+    );
+    if (insertProfileError) {
+      throw new ApiError(500, insertProfileError.message);
+    }
+  }
+
+  const { data: womenRows, error: refreshedWomenError } = await supabase
+    .from("users")
+    .select("id, email, name")
+    .in("email", candidateEmails);
+  if (refreshedWomenError) {
+    throw new ApiError(500, refreshedWomenError.message);
+  }
+
+  const women = (womenRows ?? []).filter((row) => row.id !== userId);
+  if (women.length === 0) {
+    return { createdMatches: 0, insertedMessages: 0 };
+  }
+
+  const { data: challengeRow, error: challengeError } = await supabase
+    .from("challenges")
+    .select("id")
+    .limit(1)
+    .maybeSingle();
+  if (challengeError) {
+    throw new ApiError(500, challengeError.message);
+  }
+
+  let challengeId = challengeRow?.id;
+  if (!challengeId) {
+    const { data: createdChallenge, error: createChallengeError } = await supabase
+      .from("challenges")
+      .insert({
+        slug: "demo-two-sum-seed",
+        title: "Two Sum",
+        difficulty: "EASY",
+        description: "<p>Demo challenge for populated chats</p>",
+        starter_code: { typescript: "function twoSum(nums:number[], target:number){ return []; }" },
+        test_cases: []
+      })
+      .select("id")
+      .single();
+
+    if (createChallengeError) {
+      throw new ApiError(500, createChallengeError.message);
+    }
+    challengeId = createdChallenge.id;
+  }
+
+  let createdMatches = 0;
+  let insertedMessages = 0;
+
+  for (const woman of women) {
+    const { data: existingRequest, error: existingRequestError } = await supabase
+      .from("interest_requests")
+      .select("id")
+      .eq("challenger_id", userId)
+      .eq("target_id", woman.id)
+      .in("status", ["PENDING_RECIPIENT", "MATCHED"])
+      .limit(1)
+      .maybeSingle();
+    if (existingRequestError) {
+      throw new ApiError(500, existingRequestError.message);
+    }
+
+    let requestId = existingRequest?.id;
+    if (!requestId) {
+      const { data: requestRow, error: requestInsertError } = await supabase
+        .from("interest_requests")
+        .insert({
+          challenger_id: userId,
+          target_id: woman.id,
+          challenge_id: challengeId,
+          status: "MATCHED",
+          requested_at: new Date().toISOString(),
+          matched_at: new Date().toISOString()
+        })
+        .select("id")
+        .single();
+      if (requestInsertError) {
+        throw new ApiError(500, requestInsertError.message);
+      }
+      requestId = requestRow.id;
+    }
+
+    const { data: existingMatch, error: existingMatchError } = await supabase
+      .from("matches")
+      .select("id")
+      .eq("request_id", requestId)
+      .maybeSingle();
+    if (existingMatchError) {
+      throw new ApiError(500, existingMatchError.message);
+    }
+
+    let matchId = existingMatch?.id;
+    if (!matchId) {
+      const { data: createdMatch, error: createMatchError } = await supabase
+        .from("matches")
+        .insert({
+          request_id: requestId,
+          user_a_id: userId,
+          user_b_id: woman.id
+        })
+        .select("id")
+        .single();
+      if (createMatchError) {
+        throw new ApiError(500, createMatchError.message);
+      }
+      matchId = createdMatch.id;
+      createdMatches += 1;
+    }
+
+    const { data: roomRow, error: roomSelectError } = await supabase
+      .from("chat_rooms")
+      .select("id")
+      .eq("match_id", matchId)
+      .maybeSingle();
+    if (roomSelectError) {
+      throw new ApiError(500, roomSelectError.message);
+    }
+
+    let roomId = roomRow?.id;
+    if (!roomId) {
+      const { data: createdRoom, error: createRoomError } = await supabase
+        .from("chat_rooms")
+        .insert({ match_id: matchId })
+        .select("id")
+        .single();
+      if (createRoomError) {
+        throw new ApiError(500, createRoomError.message);
+      }
+      roomId = createdRoom.id;
+    }
+
+    const { count: messageCount, error: messageCountError } = await supabase
+      .from("chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("room_id", roomId);
+    if (messageCountError) {
+      throw new ApiError(500, messageCountError.message);
+    }
+
+    const existingCount = messageCount ?? 0;
+    if (existingCount >= 20) {
+      continue;
+    }
+
+    const template = [
+      `Hey ${woman.name}, quick check: I’m cleaning up our API boundaries before demo.`,
+      "Nice. I’d split transport DTOs from domain models to keep validation predictable.",
+      "Exactly. Also adding idempotency around match + room creation so duplicate actions are safe.",
+      "Good call. I usually protect with unique constraints and treat retries as normal flow.",
+      "I pushed chat seeding too so we can show realistic active DMs during presentation.",
+      "Perfect. Add a couple of code snippets and mention CI stability to make it feel authentic.",
+      "Agreed. I’m also tightening challenge acceptance so correct LC submissions don’t get false negatives.",
+      "That was the right fix. Nothing breaks trust faster than correct code being rejected."
+    ];
+
+    const needed = 20 - existingCount;
+    const messages = [];
+    for (let i = 0; i < needed; i += 1) {
+      const fromUser = i % 2 === 0;
+      const content = i % 5 === 3
+        ? "const safeUpsert = async () => db.from('matches').upsert(payload, { onConflict: 'request_id' });"
+        : template[i % template.length];
+      messages.push({
+        room_id: roomId,
+        sender_id: fromUser ? userId : woman.id,
+        content,
+        format: i % 5 === 3 ? "CODE" : "MARKDOWN",
+        created_at: new Date(Date.now() - (needed - i) * 1000 * 60 * 15).toISOString()
+      });
+    }
+
+    const { error: insertMessagesError } = await supabase.from("chat_messages").insert(messages);
+    if (insertMessagesError) {
+      throw new ApiError(500, insertMessagesError.message);
+    }
+    insertedMessages += messages.length;
+  }
+
+  return { createdMatches, insertedMessages };
 }
 
 export async function getBuildLog(userId: string) {

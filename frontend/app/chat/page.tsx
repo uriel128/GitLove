@@ -16,6 +16,8 @@ export default function ChatPage() {
   const [content, setContent] = useState("");
   const [format, setFormat] = useState<"MARKDOWN" | "CODE" | "TEXT">("MARKDOWN");
   const [realtimeState, setRealtimeState] = useState("disconnected");
+  const [demoStatus, setDemoStatus] = useState("");
+  const [seedAttempted, setSeedAttempted] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
   const matchesQuery = useQuery({
@@ -23,6 +25,38 @@ export default function ChatPage() {
     queryFn: () => api.get<Match[]>(`/matches/${currentUserId}`),
     enabled: Boolean(currentUserId)
   });
+
+  const seedDemoMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentUserId) {
+        throw new Error("Missing current user");
+      }
+      return api.post<{ createdMatches: number; insertedMessages: number }>(
+        "/chat/seed-demo/messages",
+        { userId: currentUserId }
+      );
+    },
+    onSuccess: async (result) => {
+      setDemoStatus(
+        `Demo DMs ready: ${result.createdMatches} chats created, ${result.insertedMessages} messages inserted.`
+      );
+      await queryClient.invalidateQueries({ queryKey: ["matches", currentUserId] });
+    },
+    onError: (error) => {
+      setDemoStatus(error instanceof Error ? error.message : "Failed to seed demo chats");
+    }
+  });
+
+  useEffect(() => {
+    if (!currentUserId || seedAttempted || matchesQuery.isLoading) {
+      return;
+    }
+    if ((matchesQuery.data ?? []).length === 0) {
+      setSeedAttempted(true);
+      setDemoStatus("Preparing demo DMs...");
+      seedDemoMutation.mutate();
+    }
+  }, [currentUserId, matchesQuery.data, matchesQuery.isLoading, seedAttempted, seedDemoMutation]);
 
   useEffect(() => {
     const matches = matchesQuery.data ?? [];
@@ -109,6 +143,7 @@ export default function ChatPage() {
         <section className="rounded-xl border border-line bg-gradient-to-b from-panel to-panelAlt p-4">
           <h1 className="text-base font-semibold">Chat / Direct Connection</h1>
           <div className="mt-1 text-xs text-muted">Realtime status: {realtimeState}</div>
+          {demoStatus ? <div className="mt-1 text-xs text-muted">{demoStatus}</div> : null}
 
           <label className="mt-4 block text-xs text-muted">Match</label>
           <select

@@ -59,11 +59,21 @@ export default function HomePage() {
     queryFn: () => api.get<User[]>("/users")
   });
 
+  const outgoingQuery = useQuery({
+    queryKey: ["outgoing-requests", currentUserId],
+    queryFn: () => api.get<string[]>(`/interest/outgoing/${currentUserId}`),
+    enabled: Boolean(currentUserId)
+  });
+
   const users = usersQuery.data ?? [];
+  const requestedTargetIds = outgoingQuery.data ?? [];
   const currentUser = users.find((user) => user.id === currentUserId) ?? null;
   const candidates = useMemo(
-    () => users.filter((user) => user.id !== currentUserId),
-    [currentUserId, users]
+    () => {
+      const requestedSet = new Set(requestedTargetIds);
+      return users.filter((user) => user.id !== currentUserId && !requestedSet.has(user.id));
+    },
+    [currentUserId, requestedTargetIds, users]
   );
   const candidate = candidates.length > 0 ? candidates[cursor % candidates.length] : null;
   const candidateImage = useMemo(() => {
@@ -83,6 +93,7 @@ export default function HomePage() {
     onSuccess: (request) => {
       setActionError(null);
       setActiveRequest(request);
+      void queryClient.invalidateQueries({ queryKey: ["outgoing-requests", currentUserId] });
     },
     onError: (error) => {
       setActionError(error instanceof Error ? error.message : "Failed to open challenge");
@@ -100,8 +111,10 @@ export default function HomePage() {
       setActiveRequest(null);
       setCursor((value) => value + 1);
       void queryClient.invalidateQueries({ queryKey: ["matches"] });
+      void queryClient.invalidateQueries({ queryKey: ["matches", currentUserId] });
       void queryClient.invalidateQueries({ queryKey: ["build-log"] });
       void queryClient.invalidateQueries({ queryKey: ["stack-trace"] });
+      void queryClient.invalidateQueries({ queryKey: ["outgoing-requests", currentUserId] });
     }
   });
 
