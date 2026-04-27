@@ -10,10 +10,17 @@ type RequestStatus =
   | "FAILED"
   | "CANCELLED";
 type MessageFormat = "TEXT" | "MARKDOWN" | "CODE";
+type NotificationKind =
+  | "REQUEST_RECEIVED"
+  | "REQUEST_ACCEPTED"
+  | "REQUEST_DECLINED"
+  | "REQUEST_CANCELLED"
+  | "REQUEST_FAILED";
 
 const FINAL_STATUSES = new Set<RequestStatus>(["MATCHED", "FAILED", "CANCELLED"]);
 let usersCache: { expiresAt: number; data: ReturnType<typeof mapUser>[] } | null = null;
 let ensuredProfileColumns = false;
+let ensuredNotificationTables = false;
 
 export class ApiError extends Error {
   status: number;
@@ -515,6 +522,27 @@ function mapChatMessage(messageRow: any, senderRow: any | null) {
   };
 }
 
+function mapNotification(notificationRow: any, actorRow: any | null, actorProfileRow: any | null) {
+  return {
+    id: notificationRow.id,
+    recipientId: notificationRow.recipient_id,
+    actorId: notificationRow.actor_id ?? null,
+    requestId: notificationRow.request_id ?? null,
+    kind: notificationRow.kind as NotificationKind,
+    title: notificationRow.title,
+    body: notificationRow.body,
+    readAt: notificationRow.read_at ?? null,
+    createdAt: notificationRow.created_at,
+    actor: actorRow
+      ? {
+          id: actorRow.id,
+          name: actorRow.name,
+          profileImage: actorProfileRow?.profile_image_url ?? actorProfileRow?.profile_image ?? null
+        }
+      : null
+  };
+}
+
 function invalidateUsersCache() {
   usersCache = null;
 }
@@ -547,6 +575,77 @@ async function ensureMatchingProfileColumns() {
   }
 
   return false;
+}
+
+async function ensureNotificationsTable() {
+  if (ensuredNotificationTables) {
+    return true;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { error } = await supabase.rpc("exec_sql", {
+    sql: `
+      create table if not exists public.notifications (
+        id uuid primary key default gen_random_uuid(),
+        recipient_id uuid not null references public.users(id) on delete cascade,
+        actor_id uuid references public.users(id) on delete set null,
+        request_id uuid references public.interest_requests(id) on delete set null,
+        kind text not null check (kind in ('REQUEST_RECEIVED', 'REQUEST_ACCEPTED', 'REQUEST_DECLINED', 'REQUEST_CANCELLED', 'REQUEST_FAILED')),
+        title text not null,
+        body text not null,
+        payload jsonb not null default '{}'::jsonb,
+        read_at timestamptz,
+        created_at timestamptz not null default now()
+      );
+      create index if not exists notifications_recipient_created_idx on public.notifications(recipient_id, created_at desc);
+      create index if not exists notifications_recipient_read_idx on public.notifications(recipient_id, read_at);
+      alter publication supabase_realtime add table public.notifications;
+      alter publication supabase_realtime add table public.interest_requests;
+    `
+  });
+
+  if (!error) {
+    ensuredNotificationTables = true;
+    return true;
+  }
+
+  const probe = await supabase.from("notifications").select("id", { head: true, count: "exact" });
+  if (!probe.error) {
+    ensuredNotificationTables = true;
+    return true;
+  }
+
+  return false;
+}
+
+async function createNotification(input: {
+  recipientId: string;
+  actorId?: string | null;
+  requestId?: string | null;
+  kind: NotificationKind;
+  title: string;
+  body: string;
+  payload?: Record<string, unknown>;
+}) {
+  const ready = await ensureNotificationsTable();
+  if (!ready) {
+    return;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { error } = await supabase.from("notifications").insert({
+    recipient_id: input.recipientId,
+    actor_id: input.actorId ?? null,
+    request_id: input.requestId ?? null,
+    kind: input.kind,
+    title: input.title,
+    body: input.body,
+    payload: input.payload ?? {}
+  });
+
+  if (error) {
+    console.warn("Failed to create notification", error.message);
+  }
 }
 
 async function getUserRowsByIds(userIds: string[]) {
@@ -2016,10 +2115,11 @@ export async function openInterestRequest(challengerId: string, targetId: string
   const supabase = getSupabaseAdminClient();
   const { data: existingRequest, error: existingRequestError } = await supabase
     .from("interest_requests")
-    .select("id")
+    .select("*")
     .eq("challenger_id", challengerId)
     .eq("target_id", targetId)
     .in("status", ["PENDING_CHALLENGER", "PENDING_RECIPIENT"])
+    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -2027,7 +2127,20 @@ export async function openInterestRequest(challengerId: string, targetId: string
     throw new ApiError(500, existingRequestError.message);
   }
   if (existingRequest?.id) {
-    throw new ApiError(400, "You already requested this user");
+    if (existingRequest.status === "PENDING_CHALLENGER") {
+      const challengeRow = await getChallengeById(existingRequest.challenge_id);
+      return mapInterestRequest(existingRequest, challengeRow);
+    }
+
+    const { error: cancelPreviousError } = await supabase
+      .from("interest_requests")
+      .update({ status: "CANCELLED" })
+      .eq("id", existingRequest.id)
+      .eq("status", "PENDING_RECIPIENT");
+
+    if (cancelPreviousError) {
+      throw new ApiError(500, cancelPreviousError.message);
+    }
   }
 
   const difficulty = challenger.profile?.challengeLevel ?? "EASY";
@@ -2155,6 +2268,13 @@ export async function submitInterestAttempt(
     }
 
     const challengeRow = await getChallengeById(failedRequest.challenge_id);
+    await createNotification({
+      recipientId: failedRequest.challenger_id,
+      requestId: failedRequest.id,
+      kind: "REQUEST_FAILED",
+      title: "Request failed",
+      body: "Your coding challenge attempt failed, so the request was not sent."
+    });
     return mapInterestRequest(failedRequest, challengeRow);
   }
 
@@ -2173,14 +2293,24 @@ export async function submitInterestAttempt(
       throw new ApiError(500, updatedRequestError.message);
     }
 
-    // Create the DM thread immediately after successful first solve.
-    await ensureMatchRoomForRequest(
-      updatedRequest.id,
-      updatedRequest.challenger_id,
-      updatedRequest.target_id
-    );
+    const [challenger, challengeRow] = await Promise.all([
+      getUserById(updatedRequest.challenger_id),
+      getChallengeById(updatedRequest.challenge_id)
+    ]);
 
-    const challengeRow = await getChallengeById(updatedRequest.challenge_id);
+    await createNotification({
+      recipientId: updatedRequest.target_id,
+      actorId: updatedRequest.challenger_id,
+      requestId: updatedRequest.id,
+      kind: "REQUEST_RECEIVED",
+      title: `${challenger?.name ?? "Someone"} sent you a request`,
+      body: `They cleared ${challengeRow.title}. Review the request in Notifications.`,
+      payload: {
+        challengeTitle: challengeRow.title,
+        difficulty: challengeRow.difficulty
+      }
+    });
+
     return mapInterestRequest(updatedRequest, challengeRow);
   }
 
@@ -2246,6 +2376,18 @@ export async function cancelInterestRequest(requestId: string, challengerId: str
     throw new ApiError(500, error.message);
   }
 
+  if (requestRow.status === "PENDING_RECIPIENT") {
+    const challenger = await getUserById(challengerId);
+    await createNotification({
+      recipientId: requestRow.target_id,
+      actorId: challengerId,
+      requestId,
+      kind: "REQUEST_CANCELLED",
+      title: `${challenger?.name ?? "Someone"} withdrew a request`,
+      body: "The pending request was cancelled before you responded."
+    });
+  }
+
   return data;
 }
 
@@ -2267,8 +2409,15 @@ export async function getPendingForUser(userId: string) {
   const challengeRows = await getChallengesByIds(rows.map((request) => request.challenge_id));
   const challengeById = new Map(challengeRows.map((challenge) => [challenge.id, challenge]));
 
-  const challengerRows = await getUserRowsByIds(rows.map((request) => request.challenger_id));
+  const challengerIds = rows.map((request) => request.challenger_id);
+  const [challengerRows, challengerProfiles] = await Promise.all([
+    getUserRowsByIds(challengerIds),
+    getProfileRowsByUserIds(challengerIds)
+  ]);
   const challengerById = new Map(challengerRows.map((challenger) => [challenger.id, challenger]));
+  const challengerProfileById = new Map(
+    challengerProfiles.map((profile) => [profile.user_id, profile])
+  );
 
   return rows.map((request) => {
     const challenge = challengeById.get(request.challenge_id);
@@ -2280,14 +2429,104 @@ export async function getPendingForUser(userId: string) {
 
     return {
       ...mapInterestRequest(request, challenge),
+      createdAt: request.created_at,
+      requestedAt: request.requested_at,
       challenger: challenger
         ? {
             id: challenger.id,
-            name: challenger.name
+            name: challenger.name,
+            profileImage:
+              challengerProfileById.get(challenger.id)?.profile_image_url ??
+              challengerProfileById.get(challenger.id)?.profile_image ??
+              null
           }
         : null
     };
   });
+}
+
+export async function respondToInterestRequest(
+  requestId: string,
+  userId: string,
+  decision: "ACCEPT" | "DECLINE"
+) {
+  const supabase = getSupabaseAdminClient();
+  const requestRow = await getInterestRequestById(requestId);
+
+  if (requestRow.target_id !== userId) {
+    throw new ApiError(403, "Only the recipient can respond to this request");
+  }
+
+  if (requestRow.status !== "PENDING_RECIPIENT") {
+    throw new ApiError(400, "This request is no longer awaiting a response");
+  }
+
+  const [recipient, challenger, challengeRow] = await Promise.all([
+    getUserById(userId),
+    getUserById(requestRow.challenger_id),
+    getChallengeById(requestRow.challenge_id)
+  ]);
+
+  if (decision === "DECLINE") {
+    const { data: declinedRequest, error: declinedRequestError } = await supabase
+      .from("interest_requests")
+      .update({ status: "CANCELLED" })
+      .eq("id", requestId)
+      .eq("status", "PENDING_RECIPIENT")
+      .select("*")
+      .single();
+
+    if (declinedRequestError) {
+      throw new ApiError(500, declinedRequestError.message);
+    }
+
+    await createNotification({
+      recipientId: requestRow.challenger_id,
+      actorId: userId,
+      requestId,
+      kind: "REQUEST_DECLINED",
+      title: `${recipient?.name ?? "A user"} declined your request`,
+      body: `Your request for ${challengeRow.title} was declined.`
+    });
+
+    return mapInterestRequest(declinedRequest, challengeRow);
+  }
+
+  const { data: matchedRequest, error: matchedRequestError } = await supabase
+    .from("interest_requests")
+    .update({
+      status: "MATCHED",
+      matched_at: new Date().toISOString()
+    })
+    .eq("id", requestId)
+    .eq("status", "PENDING_RECIPIENT")
+    .select("*")
+    .single();
+
+  if (matchedRequestError) {
+    throw new ApiError(500, matchedRequestError.message);
+  }
+
+  await ensureMatchRoomForRequest(
+    matchedRequest.id,
+    matchedRequest.challenger_id,
+    matchedRequest.target_id
+  );
+
+  await createNotification({
+    recipientId: requestRow.challenger_id,
+    actorId: userId,
+    requestId,
+    kind: "REQUEST_ACCEPTED",
+    title: `${recipient?.name ?? "A user"} accepted your request`,
+    body: `You matched with ${recipient?.name ?? "them"}. Open Chat to continue.`,
+    payload: {
+      challengerName: challenger?.name ?? null,
+      recipientName: recipient?.name ?? null
+    }
+  });
+
+  return mapInterestRequest(matchedRequest, challengeRow);
 }
 
 export async function getMatchesForUser(userId: string) {
@@ -2358,6 +2597,80 @@ export async function getMatchesForUser(userId: string) {
         : null
     };
   });
+}
+
+export async function listNotifications(userId: string) {
+  const ready = await ensureNotificationsTable();
+  if (!ready) {
+    return [];
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data: notificationRows, error } = await supabase
+    .from("notifications")
+    .select("*")
+    .eq("recipient_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (error) {
+    throw new ApiError(500, error.message);
+  }
+
+  const rows = notificationRows ?? [];
+  const actorIds = [...new Set(rows.map((row) => row.actor_id).filter((value): value is string => Boolean(value)))];
+  const [actorRows, actorProfiles] = await Promise.all([
+    getUserRowsByIds(actorIds),
+    getProfileRowsByUserIds(actorIds)
+  ]);
+
+  const actorById = new Map(actorRows.map((row) => [row.id, row]));
+  const actorProfileById = new Map(actorProfiles.map((row) => [row.user_id, row]));
+
+  return rows.map((row) =>
+    mapNotification(row, actorById.get(row.actor_id ?? "") ?? null, actorProfileById.get(row.actor_id ?? "") ?? null)
+  );
+}
+
+export async function markNotificationRead(notificationId: string, userId: string) {
+  const ready = await ensureNotificationsTable();
+  if (!ready) {
+    return { ok: true };
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { error } = await supabase
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("id", notificationId)
+    .eq("recipient_id", userId)
+    .is("read_at", null);
+
+  if (error) {
+    throw new ApiError(500, error.message);
+  }
+
+  return { ok: true };
+}
+
+export async function markAllNotificationsRead(userId: string) {
+  const ready = await ensureNotificationsTable();
+  if (!ready) {
+    return { ok: true };
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { error } = await supabase
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("recipient_id", userId)
+    .is("read_at", null);
+
+  if (error) {
+    throw new ApiError(500, error.message);
+  }
+
+  return { ok: true };
 }
 
 async function ensureMatchMembership(matchId: string, userId: string) {
@@ -2812,6 +3125,7 @@ export async function seedDemoChatsForUser(userId: string) {
 export async function getBuildLog(userId: string) {
   const supabase = getSupabaseAdminClient();
   const user = await getUserById(userId);
+  const globalSignals = await getStackTrace();
 
   const [attemptRowsResult, commitCountResult, pendingRowsResult, matchCountAResult, matchCountBResult] =
     await Promise.all([
@@ -2903,6 +3217,10 @@ export async function getBuildLog(userId: string) {
       passedAttempts,
       failedAttempts,
       matchCount
+    },
+    globalSignals: {
+      trendingLanguages: globalSignals.trendingLanguages,
+      challengePassRateByDifficulty: globalSignals.challengePassRateByDifficulty
     },
     commits,
     pendingPullRequests: pendingRows.map((request) => ({

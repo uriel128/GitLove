@@ -8,8 +8,8 @@ import { RequireAuth } from "@/components/require-auth";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { isProfileComplete } from "@/lib/profile-complete";
-import { InterestRequest, Match, ProfileGender, User } from "@/lib/types";
-import { ChevronDown, ChevronUp, Code2, Heart, MapPin, Send, Terminal, X } from "lucide-react";
+import { InterestRequest, ProfileGender, User } from "@/lib/types";
+import { ChevronDown, ChevronUp, Code2, Heart, MapPin, Terminal, X } from "lucide-react";
 
 type RosterDefaults = {
   age: number;
@@ -33,12 +33,6 @@ type RosterEntry = {
   image: string;
   aliases?: string[];
   defaults: RosterDefaults;
-};
-
-type PostSolvePrompt = {
-  targetId: string;
-  targetName: string;
-  targetImage: string | null;
 };
 
 const WOMEN_ROSTER: RosterEntry[] = [
@@ -305,15 +299,13 @@ export default function HomePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { currentUserId } = useAuth();
-  const [cursor, setCursor] = useState(0);
   const [activeRequest, setActiveRequest] = useState<InterestRequest | null>(null);
   const [expandedAttributes, setExpandedAttributes] = useState(false);
   const [radiusMiles, setRadiusMiles] = useState<"ANY" | 5 | 25 | 50 | 100>("ANY");
   const [actionError, setActionError] = useState<string | null>(null);
   const [openingChallenge, setOpeningChallenge] = useState(false);
   const [candidateImageLoaded, setCandidateImageLoaded] = useState(false);
-  const [postSolvePrompt, setPostSolvePrompt] = useState<PostSolvePrompt | null>(null);
-  const [firstMessage, setFirstMessage] = useState("");
+  const [dismissedCandidateIds, setDismissedCandidateIds] = useState<string[]>([]);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const dragStartX = useRef<number | null>(null);
   const dragDeltaX = useRef(0);
@@ -347,7 +339,7 @@ export default function HomePage() {
         ? "MALE"
         : null;
 
-  const candidates = useMemo(() => {
+  const candidatePool = useMemo(() => {
     const requestedSet = new Set(requestedTargetIds);
     const basePool = users.filter((user) => user.id !== currentUserId && isProfileComplete(user));
 
@@ -356,10 +348,8 @@ export default function HomePage() {
       : basePool;
 
     const genderPool = genderFilteredPool.length > 0 ? genderFilteredPool : basePool;
-    const freshQueuePool = genderPool.filter((user) => !requestedSet.has(user.id));
-    const queuePool = freshQueuePool.length > 0 ? freshQueuePool : genderPool;
 
-    const radiusFiltered = queuePool.filter((user) => {
+    const radiusFiltered = genderPool.filter((user) => {
       if (radiusMiles === "ANY") {
         return true;
       }
@@ -378,11 +368,16 @@ export default function HomePage() {
       return haversineMiles(sourceLat, sourceLng, candidateLat, candidateLng) <= radiusMiles;
     });
 
-    if (radiusMiles === "ANY") {
-      return [...queuePool].sort(sortCandidates);
-    }
+    const visiblePool = radiusMiles === "ANY" ? genderPool : radiusFiltered.length > 0 ? radiusFiltered : genderPool;
 
-    return [...radiusFiltered].sort(sortCandidates);
+    return [...visiblePool].sort((left, right) => {
+      const leftRequested = requestedSet.has(left.id);
+      const rightRequested = requestedSet.has(right.id);
+      if (leftRequested !== rightRequested) {
+        return leftRequested ? 1 : -1;
+      }
+      return sortCandidates(left, right);
+    });
   }, [
     currentLatitude,
     currentLongitude,
@@ -392,8 +387,13 @@ export default function HomePage() {
     targetGender,
     users
   ]);
+  const dismissedSet = useMemo(() => new Set(dismissedCandidateIds), [dismissedCandidateIds]);
+  const candidates = useMemo(() => {
+    const activePool = candidatePool.filter((user) => !dismissedSet.has(user.id));
+    return activePool.length > 0 ? activePool : candidatePool;
+  }, [candidatePool, dismissedSet]);
   const isLoadingQueue = usersQuery.isLoading || outgoingQuery.isLoading;
-  const candidate = candidates.length > 0 ? candidates[cursor % candidates.length] : null;
+  const candidate = candidates[0] ?? null;
   const candidateRoster = useMemo(
     () => (candidate ? WOMEN_ROSTER_BY_EMAIL.get(candidate.email.toLowerCase()) ?? null : null),
     [candidate]
@@ -420,8 +420,8 @@ export default function HomePage() {
     onError: (error) => {
       setOpeningChallenge(false);
       const message = error instanceof Error ? error.message : "Failed to open challenge";
-      if (message.toLowerCase().includes("already requested")) {
-        setActionError(null);
+      if (message.toLowerCase().includes("already sent this request")) {
+        setActionError("Request already sent. Check Notifications for updates.");
         advanceToNextCandidate();
         void queryClient.invalidateQueries({ queryKey: ["outgoing-requests", currentUserId] });
         return;
@@ -441,7 +441,8 @@ export default function HomePage() {
       void queryClient.invalidateQueries({ queryKey: ["matches"] });
       void queryClient.invalidateQueries({ queryKey: ["matches", currentUserId] });
       void queryClient.invalidateQueries({ queryKey: ["build-log"] });
-      void queryClient.invalidateQueries({ queryKey: ["stack-trace"] });
+      void queryClient.invalidateQueries({ queryKey: ["notifications", currentUserId] });
+      void queryClient.invalidateQueries({ queryKey: ["pending-requests", currentUserId] });
       void queryClient.invalidateQueries({ queryKey: ["outgoing-requests", currentUserId] });
     }
   });
@@ -455,49 +456,11 @@ export default function HomePage() {
     }
   });
 
-  const sendFirstMessageMutation = useMutation({
-    mutationFn: async (input: { targetId: string; message: string }) => {
-      if (!currentUserId) {
-        throw new Error("No signed-in user");
-      }
-
-      const trimmed = input.message.trim();
-      if (!trimmed) {
-        return null;
-      }
-
-      const matches = await api.get<Match[]>(`/matches/${currentUserId}`);
-      const match = matches.find(
-        (candidateMatch) =>
-          (candidateMatch.userA.id === currentUserId && candidateMatch.userB.id === input.targetId) ||
-          (candidateMatch.userB.id === currentUserId && candidateMatch.userA.id === input.targetId)
-      );
-
-      if (!match) {
-        throw new Error("Chat thread is still syncing. Please try again.");
-      }
-
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("gitlove_last_active_match_id", match.id);
-      }
-
-      return api.post(`/chat/${match.id}/messages`, {
-        senderId: currentUserId,
-        content: trimmed,
-        format: "TEXT"
-      });
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["matches", currentUserId] });
-    }
-  });
-
   function swipeLeft() {
     if (!candidate || activeRequest || openMutation.isPending || openingChallenge) return;
     setActionError(null);
     animateSwipe("left", () => {
-      setCursor((value) => value + 1);
-      setExpandedAttributes(false);
+      dismissCandidate(candidate.id);
     });
   }
 
@@ -506,9 +469,7 @@ export default function HomePage() {
     setActionError(null);
     const targetId = candidate.id;
     setOpeningChallenge(true);
-    animateSwipe("right", () => {
-      openMutation.mutate(targetId);
-    });
+    openMutation.mutate(targetId);
   }
 
   function applyDragTransform(value: number) {
@@ -595,6 +556,10 @@ export default function HomePage() {
   }, [candidate?.id]);
 
   useEffect(() => {
+    setDismissedCandidateIds((current) => current.filter((id) => candidatePool.some((user) => user.id === id)));
+  }, [candidatePool]);
+
+  useEffect(() => {
     setCandidateImageLoaded(!candidateImage);
   }, [candidate?.id, candidateImage]);
 
@@ -609,14 +574,12 @@ export default function HomePage() {
 
   const attributes = candidate
     ? [
-        ["Occupation", candidate.profile?.occupation ?? candidateRoster?.defaults.occupation ?? "Software Engineer"],
-        ["Age", String(candidate.profile?.age ?? candidateRoster?.defaults.age ?? 24)],
-      ["Hobbies", candidate.profile?.hobbies?.join(", ") || candidateRoster?.defaults.hobbies.join(", ") || "Coding, Travel, Coffee"],
-      ["IDE", candidate.profile?.editorChoice ?? candidateRoster?.defaults.editorChoice ?? "VS Code"],
-      ["Language", candidate.profile?.languageChoice ?? candidateRoster?.defaults.languageChoice ?? "TypeScript"],
-      ["Vibe", candidate.profile?.vibeBadge ?? candidateRoster?.defaults.vibeBadge ?? "Real Developer"],
-      ["Framework", candidate.profile?.favoriteFramework ?? candidateRoster?.defaults.favoriteFramework ?? "React"],
-      ["OS", candidate.profile?.favoriteOS ?? candidateRoster?.defaults.favoriteOS ?? "macOS"],
+        ["Hobbies", candidate.profile?.hobbies?.join(", ") || candidateRoster?.defaults.hobbies.join(", ") || "Coding, Travel, Coffee"],
+        ["IDE", candidate.profile?.editorChoice ?? candidateRoster?.defaults.editorChoice ?? "VS Code"],
+        ["Language", candidate.profile?.languageChoice ?? candidateRoster?.defaults.languageChoice ?? "TypeScript"],
+        ["Vibe", candidate.profile?.vibeBadge ?? candidateRoster?.defaults.vibeBadge ?? "Real Developer"],
+        ["Framework", candidate.profile?.favoriteFramework ?? candidateRoster?.defaults.favoriteFramework ?? "React"],
+        ["OS", candidate.profile?.favoriteOS ?? candidateRoster?.defaults.favoriteOS ?? "macOS"],
         ["Data Structure", candidate.profile?.favoriteDataStructure ?? candidateRoster?.defaults.favoriteDataStructure ?? "Hash Map"],
         ["Algorithm", candidate.profile?.favoriteAlgorithm ?? candidateRoster?.defaults.favoriteAlgorithm ?? "Two Pointers"],
         ["Challenge Level", candidate.profile?.challengeLevel ?? candidateRoster?.defaults.challengeLevel ?? "EASY"]
@@ -630,8 +593,28 @@ export default function HomePage() {
   const candidateLocation = candidate?.profile?.locationText ?? "Location not set";
 
   function advanceToNextCandidate() {
+    if (!candidate) {
+      setExpandedAttributes(false);
+      return;
+    }
+    dismissCandidate(candidate.id);
+  }
+
+  function dismissCandidate(candidateId: string) {
     setExpandedAttributes(false);
-    setCursor((value) => value + 1);
+    setDismissedCandidateIds((current) => {
+      const next = current.filter((id) => candidatePool.some((user) => user.id === id));
+      if (next.includes(candidateId)) {
+        return next;
+      }
+
+      const remainingCandidates = candidatePool.filter((user) => user.id !== candidateId && !next.includes(user.id));
+      if (remainingCandidates.length === 0) {
+        return [];
+      }
+
+      return [...next, candidateId];
+    });
   }
 
   return (
@@ -665,10 +648,14 @@ export default function HomePage() {
         </div>
         <div className="relative mx-auto flex h-[calc(100vh-90px)] w-full max-w-[440px] items-start justify-center">
           {isLoadingQueue ? (
-            <div className="text-center p-8 rounded-[2rem] border border-dashed border-line bg-panel/30 w-full shadow-lg">
-              <Code2 className="w-12 h-12 text-muted mx-auto mb-4 opacity-50" />
-              <h2 className="text-xl font-bold text-text mb-2">Preparing Candidate Queue</h2>
-              <p className="text-muted text-sm">Syncing developer profiles...</p>
+            <div className="flex w-full flex-col items-center justify-center rounded-[2rem] border border-line/60 bg-panel/50 px-8 py-14 text-center shadow-lg backdrop-blur-sm">
+              <div className="relative mb-6 h-20 w-20">
+                <div className="absolute inset-0 rounded-full border-4 border-cyan-400/15" />
+                <div className="absolute inset-2 rounded-full border-4 border-transparent border-t-cyan-400 border-r-cyan-300 animate-spin" />
+                <div className="absolute inset-5 rounded-full border-4 border-transparent border-b-fuchsia-400 border-l-fuchsia-300 animate-spin [animation-direction:reverse] [animation-duration:1.2s]" />
+                <div className="absolute inset-[34px] rounded-full bg-white/70 shadow-[0_0_20px_rgba(255,255,255,0.35)] dark:bg-cyan-100/80" />
+              </div>
+              <h2 className="text-xl font-bold text-text">Loading</h2>
             </div>
           ) : !candidate ? (
             <div className="text-center p-8 rounded-[2rem] border border-dashed border-line bg-panel/30 w-full shadow-lg">
@@ -813,7 +800,13 @@ export default function HomePage() {
           </div>
         ) : null}
         {actionError ? (
-          <div className="mx-auto mt-3 max-w-[440px] rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+          <div
+            className={`mx-auto mt-3 max-w-[440px] rounded-md px-3 py-2 text-xs ${
+              actionError.startsWith("Request sent")
+                ? "border border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
+                : "border border-rose-500/40 bg-rose-500/10 text-rose-200"
+            }`}
+          >
             {actionError}
           </div>
         ) : null}
@@ -846,12 +839,10 @@ export default function HomePage() {
               submittedCode: code
             });
             setActiveRequest(null);
-            setPostSolvePrompt({
-              targetId: solvedTargetId,
-              targetName: solvedTargetRoster?.name ?? solvedTargetUser?.name ?? "Developer",
-              targetImage: solvedTargetUser?.profile?.profileImage ?? solvedTargetRoster?.image ?? null
-            });
-            setFirstMessage("");
+            setActionError(
+              `Request sent to ${solvedTargetRoster?.name ?? solvedTargetUser?.name ?? "Developer"}. Watch Notifications for their response.`
+            );
+            advanceToNextCandidate();
           }}
           onFail={async (code) => {
             await attemptMutation.mutateAsync({
@@ -867,78 +858,6 @@ export default function HomePage() {
           }}
         />
       )}
-      {postSolvePrompt ? (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-3xl border border-line bg-panel p-5 shadow-2xl">
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                {postSolvePrompt.targetImage ? (
-                  <img
-                    src={postSolvePrompt.targetImage}
-                    alt={postSolvePrompt.targetName}
-                    className="h-14 w-14 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-panelAlt text-lg font-semibold text-text">
-                    {postSolvePrompt.targetName.slice(0, 1).toUpperCase()}
-                  </div>
-                )}
-                <div>
-                  <p className="text-sm text-muted">Request sent</p>
-                  <h3 className="text-lg font-semibold text-text">{postSolvePrompt.targetName}</h3>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setPostSolvePrompt(null);
-                  setFirstMessage("");
-                  advanceToNextCandidate();
-                }}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-line bg-panelAlt text-muted transition hover:text-text"
-                aria-label="Close message prompt"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <textarea
-              value={firstMessage}
-              onChange={(event) => setFirstMessage(event.target.value)}
-              placeholder="Send your first message..."
-              className="min-h-[120px] w-full resize-none rounded-2xl border border-line bg-panelAlt px-3 py-2 text-sm text-text outline-none focus:border-accent"
-            />
-
-            {sendFirstMessageMutation.isError ? (
-              <p className="mt-2 text-xs text-rose-300">
-                {sendFirstMessageMutation.error instanceof Error
-                  ? sendFirstMessageMutation.error.message
-                  : "Failed to send message"}
-              </p>
-            ) : null}
-
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={async () => {
-                  await sendFirstMessageMutation.mutateAsync({
-                    targetId: postSolvePrompt.targetId,
-                    message: firstMessage
-                  });
-                  setPostSolvePrompt(null);
-                  setFirstMessage("");
-                  advanceToNextCandidate();
-                }}
-                disabled={sendFirstMessageMutation.isPending}
-                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-cyan-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                <Send className="h-4 w-4" />
-                {sendFirstMessageMutation.isPending ? "Sending..." : "Send Message"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </RequireAuth>
   );
 }

@@ -2,16 +2,15 @@
 
 import clsx from "clsx";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { Logo } from "./logo";
 import { ThemeToggle } from "./theme-toggle";
-import { Home, Terminal, GitBranch, MessageSquare, LogOut, Settings, UserCircle } from "lucide-react";
+import { Home, Terminal, Bell, MessageSquare, LogOut, Settings, UserCircle } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 export function TopNav() {
   const pathname = usePathname();
-  const router = useRouter();
   const { currentUser, isSignedIn, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -38,7 +37,7 @@ export function TopNav() {
   const navItems = [
     { href: "/home", label: "Home", icon: Home },
     { href: "/build-log", label: "Build Log", icon: Terminal },
-    { href: "/stack-trace", label: "Stack Trace", icon: GitBranch },
+    { href: "/notifications", label: "Notifications", icon: Bell },
     { href: "/chat", label: "Chat", icon: MessageSquare }
   ];
 
@@ -111,10 +110,10 @@ export function TopNav() {
                   </Link>
                   <div className="h-px w-full bg-line" />
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       setDropdownOpen(false);
-                      logout();
-                      router.push("/");
+                      await logout();
+                      window.location.href = "/";
                     }}
                     className="flex items-center gap-2 px-4 py-3 text-sm text-red-500 hover:bg-red-500/10 transition-colors text-left"
                   >

@@ -12,6 +12,9 @@ import {
   getChatMessages,
   getHealth,
   getMatchesForUser,
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
   getPendingForUser,
   getOutgoingRequestedTargetIds,
   getRandomChallenge,
@@ -23,6 +26,7 @@ import {
   submitInterestAttempt,
   syncAuthUser,
   provisionAuthUser,
+  respondToInterestRequest,
   uploadProfileImage,
   devSignupAuthUser,
   seedDemoChatsForUser,
@@ -195,6 +199,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json(await getOutgoingRequestedTargetIds(route[2]));
     }
 
+    if (route.length === 2 && route[0] === "notifications") {
+      return NextResponse.json(await listNotifications(route[1]));
+    }
+
     if (route.length === 3 && route[0] === "chat" && route[2] === "messages") {
       const userId = request.nextUrl.searchParams.get("userId");
       if (!userId) {
@@ -310,6 +318,27 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const body = await parseJson(request);
       const challengerId = requiredString(body?.challengerId, "challengerId");
       return NextResponse.json(await cancelInterestRequest(route[1], challengerId));
+    }
+
+    if (route.length === 3 && route[0] === "interest" && route[2] === "respond") {
+      const body = await parseJson(request);
+      const userId = requiredString(body?.userId, "userId");
+      if (body?.decision !== "ACCEPT" && body?.decision !== "DECLINE") {
+        throw new ApiError(400, "decision must be ACCEPT or DECLINE");
+      }
+      return NextResponse.json(await respondToInterestRequest(route[1], userId, body.decision));
+    }
+
+    if (route.length === 3 && route[0] === "notifications" && route[2] === "read") {
+      const body = await parseJson(request);
+      const userId = requiredString(body?.userId, "userId");
+      return NextResponse.json(await markNotificationRead(route[1], userId));
+    }
+
+    if (route.length === 2 && route[0] === "notifications" && route[1] === "read-all") {
+      const body = await parseJson(request);
+      const userId = requiredString(body?.userId, "userId");
+      return NextResponse.json(await markAllNotificationsRead(userId));
     }
 
     if (route.length === 3 && route[0] === "chat" && route[1] === "seed-demo" && route[2] === "messages") {

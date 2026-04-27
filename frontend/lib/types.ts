@@ -62,6 +62,40 @@ export type InterestRequest = {
   challenge: Challenge;
 };
 
+export type PendingInterestRequest = InterestRequest & {
+  createdAt: string;
+  requestedAt: string | null;
+  challenger: {
+    id: string;
+    name: string;
+    profileImage: string | null;
+  } | null;
+};
+
+export type NotificationKind =
+  | "REQUEST_RECEIVED"
+  | "REQUEST_ACCEPTED"
+  | "REQUEST_DECLINED"
+  | "REQUEST_CANCELLED"
+  | "REQUEST_FAILED";
+
+export type AppNotification = {
+  id: string;
+  recipientId: string;
+  actorId: string | null;
+  requestId: string | null;
+  kind: NotificationKind;
+  title: string;
+  body: string;
+  readAt: string | null;
+  createdAt: string;
+  actor: {
+    id: string;
+    name: string;
+    profileImage: string | null;
+  } | null;
+};
+
 export type Match = {
   id: string;
   userA: { id: string; name: string; profileImage: string | null };

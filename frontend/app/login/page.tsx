@@ -6,6 +6,7 @@ import { FormEvent, useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/lib/auth";
 import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { isProfileComplete } from "@/lib/profile-complete";
 import { Github, Loader2 } from "lucide-react";
 
 type AuthMode = "login" | "signup";
@@ -22,7 +23,6 @@ function AuthContent() {
     loginWithEmail,
     loginWithGoogle,
     loginWithGitHub,
-    logout,
     signupWithEmail
   } = useAuth();
   
@@ -48,19 +48,25 @@ function AuthContent() {
     }
   }, [isReady, isSignedIn]);
 
+  useEffect(() => {
+    if (!isReady || !isSignedIn) {
+      return;
+    }
+
+    router.replace(currentUser && isProfileComplete(currentUser) ? "/home" : "/onboarding/profile");
+  }, [currentUser, isReady, isSignedIn, router]);
+
   async function handleSubmit() {
     setBusy(true);
     setStatus("");
     try {
       if (mode === "login") {
         await loginWithEmail(email, password);
-        setStatus("Login successful. Opening app...");
-        router.push("/home");
+        router.replace("/home");
       } else {
         const result = await signupWithEmail(name, email, password);
         if (result.signedIn) {
-          setStatus("Account created. Continue with your profile setup...");
-          router.push("/onboarding/profile");
+          router.replace("/home");
         } else {
           setStatus("Account created and stored. Check your email to verify, then sign in.");
           setMode("login");
@@ -116,6 +122,14 @@ function AuthContent() {
     );
   }
 
+  if (isSignedIn) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center text-muted">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-md mx-auto">
       <div className="text-center mb-8">
@@ -163,32 +177,7 @@ function AuthContent() {
             </div>
           ) : null}
 
-          {isSignedIn ? (
-            <div className="text-center py-6">
-              <div className="w-16 h-16 bg-ok/20 text-ok rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-              </div>
-              <h3 className="text-xl font-bold mb-2 text-text">You're already logged in!</h3>
-              <p className="text-muted text-sm mb-6">Signed in as {currentUser?.email}</p>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => router.push("/home")}
-                  className="flex-1 rounded-full bg-accent px-4 py-3 text-sm font-bold text-white hover:bg-accent/90 transition-colors"
-                >
-                  Go to App
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void logout()}
-                  className="rounded-full border border-line bg-panel px-6 py-3 text-sm font-medium text-text hover:bg-panelAlt transition-colors"
-                >
-                  Log Out
-                </button>
-              </div>
-            </div>
-          ) : (
-            <form className="flex flex-col gap-4" onSubmit={handleFormSubmit}>
+          <form className="flex flex-col gap-4" onSubmit={handleFormSubmit}>
               <button
                 type="button"
                 onClick={() => void handleGitHub()}
@@ -282,7 +271,6 @@ function AuthContent() {
                 )}
               </button>
             </form>
-          )}
         </div>
       </div>
       

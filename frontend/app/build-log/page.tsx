@@ -16,6 +16,14 @@ type BuildLogResponse = {
     failedAttempts: number;
     matchCount: number;
   };
+  globalSignals: {
+    trendingLanguages: Array<{ language: string; count: number }>;
+    challengePassRateByDifficulty: {
+      EASY: number;
+      MEDIUM: number;
+      HARD: number;
+    };
+  };
   commits: number;
   pendingPullRequests: Array<{
     requestId: string;
@@ -70,6 +78,37 @@ export default function BuildLogPage() {
                   value={Math.max(0, 100 - data.systemHealth.successRate)}
                   tone="warn"
                 />
+              </div>
+            </section>
+
+            <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+              <div className="rounded-xl border border-line bg-gradient-to-r from-panel to-panelAlt px-5 py-4">
+                <h2 className="text-sm font-semibold text-text">Trending Languages</h2>
+                <div className="mt-3 space-y-2">
+                  {data.globalSignals.trendingLanguages.length === 0 ? (
+                    <p className="text-sm text-muted">No merge signals yet.</p>
+                  ) : (
+                    data.globalSignals.trendingLanguages.map((language, index) => (
+                      <div key={language.language} className="rounded-lg border border-line bg-panelAlt px-3 py-2.5">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="font-medium text-text">
+                            {index + 1}. {language.language}
+                          </span>
+                          <span className="text-muted">{language.count}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-line bg-gradient-to-r from-panel to-panelAlt px-5 py-4">
+                <h2 className="text-sm font-semibold text-text">Pass Rate by Difficulty</h2>
+                <div className="mt-3 space-y-3">
+                  <ProgressRow label="Easy" value={data.globalSignals.challengePassRateByDifficulty.EASY} tone="good" />
+                  <ProgressRow label="Medium" value={data.globalSignals.challengePassRateByDifficulty.MEDIUM} tone="warn" />
+                  <ProgressRow label="Hard" value={data.globalSignals.challengePassRateByDifficulty.HARD} tone="bad" />
+                </div>
               </div>
             </section>
 
@@ -159,7 +198,7 @@ function ProgressRow({
 }: {
   label: string;
   value: number;
-  tone: "good" | "warn";
+  tone: "good" | "warn" | "bad";
 }) {
   const safeValue = Math.max(0, Math.min(100, Number(value.toFixed(2))));
   return (
@@ -170,7 +209,9 @@ function ProgressRow({
       </div>
       <div className="h-2 w-full rounded-full bg-panel">
         <div
-          className={`h-2 rounded-full ${tone === "good" ? "bg-emerald-400" : "bg-amber-400"}`}
+          className={`h-2 rounded-full ${
+            tone === "good" ? "bg-emerald-400" : tone === "warn" ? "bg-amber-400" : "bg-rose-400"
+          }`}
           style={{ width: `${safeValue}%` }}
         />
       </div>

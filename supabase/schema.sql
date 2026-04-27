@@ -62,6 +62,22 @@ create table if not exists public.interest_requests (
 create index if not exists interest_requests_challenger_status_idx on public.interest_requests(challenger_id, status);
 create index if not exists interest_requests_target_status_idx on public.interest_requests(target_id, status);
 
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  recipient_id uuid not null references public.users(id) on delete cascade,
+  actor_id uuid references public.users(id) on delete set null,
+  request_id uuid references public.interest_requests(id) on delete set null,
+  kind text not null check (kind in ('REQUEST_RECEIVED', 'REQUEST_ACCEPTED', 'REQUEST_DECLINED', 'REQUEST_CANCELLED', 'REQUEST_FAILED')),
+  title text not null,
+  body text not null,
+  payload jsonb not null default '{}'::jsonb,
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists notifications_recipient_created_idx on public.notifications(recipient_id, created_at desc);
+create index if not exists notifications_recipient_read_idx on public.notifications(recipient_id, read_at);
+
 create table if not exists public.challenge_attempts (
   id uuid primary key default gen_random_uuid(),
   request_id uuid not null references public.interest_requests(id) on delete cascade,
@@ -103,3 +119,5 @@ create table if not exists public.chat_messages (
 create index if not exists chat_messages_room_created_idx on public.chat_messages(room_id, created_at);
 
 alter publication supabase_realtime add table public.chat_messages;
+alter publication supabase_realtime add table public.notifications;
+alter publication supabase_realtime add table public.interest_requests;
