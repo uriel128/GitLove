@@ -26,7 +26,7 @@ type FormState = {
   favoriteOS: string;
   favoriteDataStructure: string;
   favoriteAlgorithm: string;
-  gender: ProfileGender;
+  gender: ProfileGender | "";
   locationText: string;
   latitude: string;
   longitude: string;
@@ -48,7 +48,7 @@ const EMPTY_FORM: FormState = {
   favoriteOS: "",
   favoriteDataStructure: "",
   favoriteAlgorithm: "",
-  gender: "MALE",
+  gender: "",
   locationText: "",
   latitude: "",
   longitude: "",
@@ -96,7 +96,7 @@ export default function ProfileOnboardingPage() {
       favoriteOS: user.profile?.favoriteOS ?? "",
       favoriteDataStructure: user.profile?.favoriteDataStructure ?? "",
       favoriteAlgorithm: user.profile?.favoriteAlgorithm ?? "",
-      gender: user.profile?.gender ?? "MALE",
+      gender: user.profile?.gender ?? "",
       locationText: user.profile?.locationText ?? "",
       latitude: typeof user.profile?.latitude === "number" ? String(user.profile.latitude) : "",
       longitude: typeof user.profile?.longitude === "number" ? String(user.profile.longitude) : "",
@@ -148,7 +148,7 @@ export default function ProfileOnboardingPage() {
         favoriteOS: form.favoriteOS.trim(),
         favoriteDataStructure: form.favoriteDataStructure.trim(),
         favoriteAlgorithm: form.favoriteAlgorithm.trim(),
-        gender: form.gender,
+        gender: form.gender as ProfileGender,
         locationText: form.locationText.trim(),
         latitude: Number(form.latitude),
         longitude: Number(form.longitude),
@@ -250,8 +250,8 @@ export default function ProfileOnboardingPage() {
             <Select
               label="Gender"
               value={form.gender}
-              onChange={(value) => setForm((s) => ({ ...s, gender: value as ProfileGender }))}
-              options={["MALE", "FEMALE"]}
+              onChange={(value) => setForm((s) => ({ ...s, gender: value as ProfileGender | "" }))}
+              options={["", "MALE", "FEMALE"]}
             />
             <Input label="Age" type="number" value={form.age} onChange={(value) => setForm((s) => ({ ...s, age: value }))} />
             <Select
@@ -398,7 +398,7 @@ function Select({
       >
         {options.map((option) => (
           <option key={option} value={option}>
-            {option}
+            {option || "Select"}
           </option>
         ))}
       </select>

@@ -1,5 +1,10 @@
 type AuthUserLike = {
+  email?: string | null;
   app_metadata?: {
+    role?: unknown;
+    roles?: unknown;
+  } | null;
+  user_metadata?: {
     role?: unknown;
     roles?: unknown;
   } | null;
@@ -15,15 +20,30 @@ function normalizeRole(value: unknown) {
 }
 
 export function hasAdminRoleFromAuthUser(authUser: AuthUserLike) {
-  const role = normalizeRole(authUser?.app_metadata?.role);
-  if (role === "admin") {
+  const email = authUser?.email?.trim().toLowerCase() ?? "";
+  if (email === "admin@gitlove.com") {
     return true;
   }
 
-  const roles = authUser?.app_metadata?.roles;
-  if (!Array.isArray(roles)) {
-    return false;
+  const appRole = normalizeRole(authUser?.app_metadata?.role);
+  if (appRole === "admin") {
+    return true;
   }
 
-  return roles.some((candidate) => normalizeRole(candidate) === "admin");
+  const userRole = normalizeRole(authUser?.user_metadata?.role);
+  if (userRole === "admin") {
+    return true;
+  }
+
+  const appRoles = authUser?.app_metadata?.roles;
+  if (Array.isArray(appRoles) && appRoles.some((candidate) => normalizeRole(candidate) === "admin")) {
+    return true;
+  }
+
+  const userRoles = authUser?.user_metadata?.roles;
+  if (Array.isArray(userRoles) && userRoles.some((candidate) => normalizeRole(candidate) === "admin")) {
+    return true;
+  }
+
+  return false;
 }

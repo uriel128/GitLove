@@ -37,7 +37,13 @@ export default function SettingsPage() {
     queryKey: ["auth-me", currentUserId],
     queryFn: async () => {
       const accessToken = await getAccessToken();
-      return apiRequest<{ authUser: { app_metadata?: { role?: unknown; roles?: unknown } | null } }>(
+      return apiRequest<{
+        authUser: {
+          email?: string | null;
+          app_metadata?: { role?: unknown; roles?: unknown } | null;
+          user_metadata?: { role?: unknown; roles?: unknown } | null;
+        };
+      }>(
         "/auth/me",
         {
           method: "POST",

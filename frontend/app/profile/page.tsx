@@ -53,6 +53,7 @@ export default function ProfilePage() {
   const queryClient = useQueryClient();
   const { currentUserId } = useAuth();
   const [form, setForm] = useState<ProfileForm>(initialForm);
+  const [quickChallengeLevel, setQuickChallengeLevel] = useState<"EASY" | "MEDIUM" | "HARD">("EASY");
   const [status, setStatus] = useState("");
   const [imageStatus, setImageStatus] = useState("");
   const [editing, setEditing] = useState(false);
@@ -86,6 +87,7 @@ export default function ProfilePage() {
       longitude: typeof user.profile?.longitude === "number" ? String(user.profile.longitude) : "",
       challengeLevel: user.profile?.challengeLevel ?? "EASY"
     });
+    setQuickChallengeLevel(user.profile?.challengeLevel ?? "EASY");
   }, [user]);
 
   const saveMutation = useMutation({
@@ -140,6 +142,25 @@ export default function ProfilePage() {
     },
     onError: (error) => {
       setImageStatus(error instanceof Error ? error.message : "Upload failed");
+    }
+  });
+
+  const challengeLevelMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentUserId) {
+        throw new Error("No signed-in user");
+      }
+      return api.patch(`/users/${currentUserId}/profile`, {
+        challengeLevel: quickChallengeLevel
+      });
+    },
+    onSuccess: async () => {
+      setStatus("Challenge difficulty updated");
+      await queryClient.invalidateQueries({ queryKey: ["user", currentUserId] });
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+    onError: (error) => {
+      setStatus(`Difficulty update failed: ${error.message}`);
     }
   });
 
@@ -217,6 +238,30 @@ export default function ProfilePage() {
             </div>
 
             <div className="mt-5 rounded-2xl border border-line bg-gradient-to-r from-panelAlt to-panel p-4">
+              <div className="mb-4 flex flex-wrap items-end gap-2 rounded-xl border border-line bg-panel px-3 py-3">
+                <div>
+                  <p className="text-xs text-muted">Challenge Difficulty</p>
+                  <select
+                    value={quickChallengeLevel}
+                    onChange={(event) =>
+                      setQuickChallengeLevel(event.target.value as "EASY" | "MEDIUM" | "HARD")
+                    }
+                    className="mt-1 rounded-md border border-line bg-panelAlt px-2 py-1.5 text-xs text-text"
+                  >
+                    <option value="EASY">Easy</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HARD">Hard</option>
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => challengeLevelMutation.mutate()}
+                  disabled={challengeLevelMutation.isPending}
+                  className="rounded-md border border-line bg-panelAlt px-3 py-2 text-xs text-text transition hover:bg-panel disabled:opacity-50"
+                >
+                  {challengeLevelMutation.isPending ? "Updating..." : "Update Difficulty"}
+                </button>
+              </div>
               <div className="grid grid-cols-1 gap-2.5">
                 {details.map(([label, value]) => (
                   <div key={label} className="flex items-start justify-between gap-3 text-sm">

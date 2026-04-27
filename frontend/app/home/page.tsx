@@ -337,7 +337,7 @@ export default function HomePage() {
 
   const candidates = useMemo(() => {
     const requestedSet = new Set(requestedTargetIds);
-    const basePool = users.filter((user) => user.id !== currentUserId);
+    const basePool = users.filter((user) => user.id !== currentUserId && isProfileComplete(user));
 
     const genderFilteredPool = targetGender
       ? basePool.filter((user) => user.profile?.gender === targetGender)
@@ -601,7 +601,8 @@ export default function HomePage() {
       <div className="h-screen w-full p-4 pt-4">
         <div className="mx-auto mb-3 flex w-full max-w-[440px] items-center justify-between rounded-xl border border-line bg-panel/70 px-3 py-2">
           <div className="text-xs text-muted">
-            {targetGender ? `${targetGender === "FEMALE" ? "Female" : "Male"} developers` : "All developers"}
+            <span className="font-medium text-text">Location:</span>{" "}
+            {currentUser?.profile?.locationText || "Not set"}
           </div>
           <label className="flex items-center gap-2 text-xs text-muted">
             Radius
