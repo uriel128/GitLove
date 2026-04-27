@@ -81,6 +81,7 @@ function mapProfile(row: any | null) {
 type WomenRosterSeed = {
   email: string;
   name: string;
+  aliases?: string[];
   profileImageUrl: string;
   occupation: string;
   age: number;
@@ -97,17 +98,17 @@ type WomenRosterSeed = {
 };
 
 const WOMEN_ROSTER_LOCATION: Record<string, { locationText: string; latitude: number; longitude: number }> = {
-  Alana: { locationText: "San Francisco, CA", latitude: 37.7749, longitude: -122.4194 },
-  Amara: { locationText: "Austin, TX", latitude: 30.2672, longitude: -97.7431 },
-  Isabelle: { locationText: "New York, NY", latitude: 40.7128, longitude: -74.006 },
-  Julia: { locationText: "Seattle, WA", latitude: 47.6062, longitude: -122.3321 },
-  Katrina: { locationText: "Chicago, IL", latitude: 41.8781, longitude: -87.6298 },
-  Maria: { locationText: "Boston, MA", latitude: 42.3601, longitude: -71.0589 },
-  Mei: { locationText: "San Jose, CA", latitude: 37.3382, longitude: -121.8863 },
-  Nadia: { locationText: "Los Angeles, CA", latitude: 34.0522, longitude: -118.2437 },
-  Seraphina: { locationText: "Denver, CO", latitude: 39.7392, longitude: -104.9903 },
-  Sloane: { locationText: "Portland, OR", latitude: 45.5152, longitude: -122.6784 },
-  Yuna: { locationText: "Miami, FL", latitude: 25.7617, longitude: -80.1918 }
+  Alana: { locationText: "New York, NY", latitude: 40.7128, longitude: -74.006 },
+  Amara: { locationText: "Jersey City, NJ", latitude: 40.7178, longitude: -74.0431 },
+  Isabelle: { locationText: "Brooklyn, NY", latitude: 40.6782, longitude: -73.9442 },
+  Julia: { locationText: "Queens, NY", latitude: 40.7282, longitude: -73.7949 },
+  Katrina: { locationText: "Hempstead, NY", latitude: 40.7062, longitude: -73.6187 },
+  Maria: { locationText: "Stamford, CT", latitude: 41.0534, longitude: -73.5387 },
+  Mei: { locationText: "Hoboken, NJ", latitude: 40.7439, longitude: -74.0324 },
+  Nadia: { locationText: "White Plains, NY", latitude: 41.033, longitude: -73.7629 },
+  Seraphina: { locationText: "Newark, NJ", latitude: 40.7357, longitude: -74.1724 },
+  Sloane: { locationText: "New Haven, CT", latitude: 41.3083, longitude: -72.9279 },
+  Yuna: { locationText: "Philadelphia, PA", latitude: 39.9526, longitude: -75.1652 }
 };
 
 const WOMEN_ROSTER_SEED: WomenRosterSeed[] = [
@@ -148,6 +149,7 @@ const WOMEN_ROSTER_SEED: WomenRosterSeed[] = [
   {
     email: "isabelle@gitlove.com",
     name: "Isabelle",
+    aliases: ["isabella@gitlove.com"],
     profileImageUrl: "/images/users/Isabella.jpg",
     occupation: "Full-Stack Engineer",
     age: 25,
@@ -300,8 +302,20 @@ const WOMEN_ROSTER_SEED: WomenRosterSeed[] = [
   }
 ];
 
+const WOMEN_ROSTER_BY_EMAIL = new Map<string, WomenRosterSeed>();
+const WOMEN_ROSTER_BY_NAME = new Map<string, WomenRosterSeed>();
+for (const woman of WOMEN_ROSTER_SEED) {
+  WOMEN_ROSTER_BY_EMAIL.set(woman.email.toLowerCase(), woman);
+  for (const alias of woman.aliases ?? []) {
+    WOMEN_ROSTER_BY_EMAIL.set(alias.toLowerCase(), woman);
+  }
+  WOMEN_ROSTER_BY_NAME.set(woman.name.toLowerCase(), woman);
+}
+
 let lastWomenRosterSyncAt = 0;
 let womenRosterSyncPromise: Promise<void> | null = null;
+let lastAuthAppUserSyncAt = 0;
+let authAppUserSyncPromise: Promise<void> | null = null;
 
 const FALLBACK_CHALLENGES: Record<ChallengeDifficulty, Array<{
   slug: string;
@@ -430,11 +444,49 @@ function getFallbackChallenge(difficulty: ChallengeDifficulty) {
 }
 
 function mapUser(userRow: any, profileRow: any | null) {
+  const mappedProfile = mapProfile(profileRow);
+  const rosterFallback =
+    WOMEN_ROSTER_BY_EMAIL.get((userRow.email ?? "").toLowerCase()) ??
+    WOMEN_ROSTER_BY_NAME.get((userRow.name ?? "").toLowerCase());
+  const rosterLocation =
+    rosterFallback ? WOMEN_ROSTER_LOCATION[rosterFallback.name] ?? WOMEN_ROSTER_LOCATION.Isabelle : null;
+
+  if (!mappedProfile && rosterFallback) {
+    return {
+      id: userRow.id,
+      email: userRow.email,
+      name: userRow.name,
+      profile: {
+        occupation: rosterFallback.occupation,
+        age: rosterFallback.age,
+        hobbies: rosterFallback.hobbies,
+        editorChoice: rosterFallback.editorChoice,
+        languageChoice: rosterFallback.languageChoice,
+        githubUsername: rosterFallback.githubUsername,
+        vibeBadge: rosterFallback.vibeBadge,
+        profileImage: rosterFallback.profileImageUrl,
+        favoriteFramework: rosterFallback.favoriteFramework,
+        favoriteOS: rosterFallback.favoriteOS,
+        favoriteDataStructure: rosterFallback.favoriteDataStructure,
+        favoriteAlgorithm: rosterFallback.favoriteAlgorithm,
+        gender: "FEMALE" as ProfileGender,
+        locationText: rosterLocation?.locationText ?? null,
+        latitude: rosterLocation?.latitude ?? null,
+        longitude: rosterLocation?.longitude ?? null,
+        challengeLevel: rosterFallback.challengeLevel
+      }
+    };
+  }
+
+  if (mappedProfile && !mappedProfile.profileImage && rosterFallback?.profileImageUrl) {
+    mappedProfile.profileImage = rosterFallback.profileImageUrl;
+  }
+
   return {
     id: userRow.id,
     email: userRow.email,
     name: userRow.name,
-    profile: mapProfile(profileRow)
+    profile: mappedProfile
   };
 }
 
@@ -528,6 +580,209 @@ async function getProfileRowsByUserIds(userIds: string[]) {
   }
 
   return data ?? [];
+}
+
+function resolveRosterFallbackImage(email: string | null | undefined, name: string | null | undefined) {
+  const byEmail = email ? WOMEN_ROSTER_BY_EMAIL.get(email.trim().toLowerCase()) : undefined;
+  if (byEmail?.profileImageUrl) {
+    return byEmail.profileImageUrl;
+  }
+
+  const byName = name ? WOMEN_ROSTER_BY_NAME.get(name.trim().toLowerCase()) : undefined;
+  if (byName?.profileImageUrl) {
+    return byName.profileImageUrl;
+  }
+
+  return null;
+}
+
+async function upsertAppUserFromAuthId(userId: string) {
+  const supabase = getSupabaseAdminClient();
+  const { data: authData, error: authError } = await supabase.auth.admin.getUserById(userId);
+
+  if (authError || !authData.user) {
+    return null;
+  }
+
+  const email = authData.user.email?.trim().toLowerCase();
+  if (!email) {
+    return null;
+  }
+
+  const metadataName =
+    typeof authData.user.user_metadata?.name === "string"
+      ? authData.user.user_metadata.name
+      : typeof authData.user.user_metadata?.full_name === "string"
+        ? authData.user.user_metadata.full_name
+        : null;
+  const resolvedName = (metadataName?.trim() || email.split("@")[0] || "Developer").slice(0, 80);
+
+  const { data: userRow, error: upsertError } = await supabase
+    .from("users")
+    .upsert(
+      {
+        id: userId,
+        email,
+        name: resolvedName,
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: "id" }
+    )
+    .select("id, email, name, created_at")
+    .maybeSingle();
+
+  if (upsertError) {
+    const lower = upsertError.message.toLowerCase();
+    const isEmailConflict =
+      lower.includes("users_email_key") ||
+      (lower.includes("duplicate key") && lower.includes("email"));
+
+    if (isEmailConflict) {
+      const { data: existingByEmail, error: existingByEmailError } = await supabase
+        .from("users")
+        .select("id, email, name, created_at")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (existingByEmailError) {
+        throw new ApiError(500, existingByEmailError.message);
+      }
+      if (existingByEmail) {
+        return existingByEmail;
+      }
+    }
+
+    throw new ApiError(500, upsertError.message);
+  }
+
+  invalidateUsersCache();
+  return userRow ?? null;
+}
+
+async function getUserRowsByEmails(emails: string[]) {
+  const uniqueEmails = [...new Set(emails.map((email) => email.trim().toLowerCase()).filter(Boolean))];
+  if (uniqueEmails.length === 0) {
+    return [];
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, email, name, created_at")
+    .in("email", uniqueEmails);
+
+  if (error) {
+    throw new ApiError(500, error.message);
+  }
+
+  return data ?? [];
+}
+
+async function resolveUserRowsByRequestedIds(userIds: string[]) {
+  const uniqueIds = [...new Set(userIds)];
+  const resolved = new Map<string, { id: string; email: string; name: string; created_at: string }>();
+
+  if (uniqueIds.length === 0) {
+    return resolved;
+  }
+
+  const existingRows = await getUserRowsByIds(uniqueIds);
+  for (const row of existingRows) {
+    resolved.set(row.id, row);
+  }
+
+  const missingIds = uniqueIds.filter((id) => !resolved.has(id));
+  if (missingIds.length === 0) {
+    return resolved;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const authLookups = await Promise.all(
+    missingIds.map(async (id) => {
+      const { data, error } = await supabase.auth.admin.getUserById(id);
+      if (error || !data.user) {
+        return [id, null] as const;
+      }
+
+      const email = data.user.email?.trim().toLowerCase() ?? "";
+      const metadataName =
+        typeof data.user.user_metadata?.name === "string"
+          ? data.user.user_metadata.name
+          : typeof data.user.user_metadata?.full_name === "string"
+            ? data.user.user_metadata.full_name
+            : null;
+      const name = (metadataName?.trim() || email.split("@")[0] || "Developer").slice(0, 80);
+
+      return [
+        id,
+        {
+          id,
+          email,
+          name,
+          created_at: data.user.created_at ?? new Date().toISOString()
+        }
+      ] as const;
+    })
+  );
+
+  const authByRequestedId = new Map(authLookups.filter((entry) => entry[1] !== null));
+  const authEmails = [...new Set([...authByRequestedId.values()].map((entry) => entry!.email).filter(Boolean))];
+  const existingByEmailRows = await getUserRowsByEmails(authEmails);
+  const existingByEmail = new Map(
+    existingByEmailRows.map((row) => [row.email.trim().toLowerCase(), row])
+  );
+
+  for (const missingId of missingIds) {
+    const authRow = authByRequestedId.get(missingId);
+    if (!authRow) {
+      continue;
+    }
+
+    const matchedByEmail = existingByEmail.get(authRow.email);
+    if (matchedByEmail) {
+      resolved.set(missingId, matchedByEmail);
+      continue;
+    }
+
+    try {
+      const provisioned = await upsertAppUserFromAuthId(missingId);
+      if (provisioned) {
+        resolved.set(missingId, provisioned);
+        continue;
+      }
+    } catch (error) {
+      console.warn("Failed to provision user by requested ID", missingId, error);
+    }
+
+    resolved.set(missingId, authRow);
+  }
+
+  return resolved;
+}
+
+async function ensureAppUsersForIds(userIds: string[]) {
+  const uniqueIds = [...new Set(userIds)];
+  if (uniqueIds.length === 0) {
+    return [];
+  }
+
+  const existingRows = await getUserRowsByIds(uniqueIds);
+  const existingIds = new Set(existingRows.map((row) => row.id));
+  const missingIds = uniqueIds.filter((id) => !existingIds.has(id));
+
+  if (missingIds.length === 0) {
+    return existingRows;
+  }
+
+  for (const missingId of missingIds) {
+    try {
+      await upsertAppUserFromAuthId(missingId);
+    } catch (error) {
+      console.warn("Failed to provision missing app user", missingId, error);
+    }
+  }
+
+  return getUserRowsByIds(uniqueIds);
 }
 
 async function getChallengesByIds(challengeIds: string[]) {
@@ -873,7 +1128,12 @@ export async function listAdminUsers() {
         bannedUntil: authUser.banned_until ?? null,
         providers,
         hasProfile: Boolean(appUser?.profile),
-        profileImage: appUser?.profile?.profileImage ?? null,
+        profileImage:
+          appUser?.profile?.profileImage ??
+          resolveRosterFallbackImage(
+            email,
+            appUser?.name ?? metadataName?.trim() ?? email.split("@")[0] ?? null
+          ),
         occupation: appUser?.profile?.occupation ?? null,
         gender: appUser?.profile?.gender ?? null,
         locationText: appUser?.profile?.locationText ?? null,
@@ -1074,11 +1334,21 @@ async function syncWomenRosterUsers() {
       .filter((item) => item.email)
       .map((item) => [item.email, item.user])
   );
+  const rosterEmailAliases = WOMEN_ROSTER_SEED.flatMap((woman) => [
+    woman.email,
+    ...(woman.aliases ?? [])
+  ]);
+  const existingAppUsers = await getUserRowsByEmails(rosterEmailAliases);
+  const existingAppByEmail = new Map(
+    existingAppUsers.map((row) => [row.email.trim().toLowerCase(), row])
+  );
 
   const imageColumn = await resolveProfileImageColumn();
 
   for (const woman of WOMEN_ROSTER_SEED) {
-    let authUser = authByEmail.get(woman.email);
+    let authUser =
+      authByEmail.get(woman.email) ??
+      (woman.aliases ?? []).map((alias) => authByEmail.get(alias)).find(Boolean);
 
     if (!authUser) {
       const { data: createdAuthUser, error: createAuthUserError } = await supabase.auth.admin.createUser({
@@ -1112,21 +1382,48 @@ async function syncWomenRosterUsers() {
       }
     }
 
-    const userId = authUser.id;
+    const userEmail = authUser.email?.trim().toLowerCase() || woman.email;
+    const existingAppUser =
+      existingAppByEmail.get(userEmail) ??
+      existingAppByEmail.get(woman.email) ??
+      (woman.aliases ?? [])
+        .map((alias) => existingAppByEmail.get(alias.toLowerCase()))
+        .find(Boolean);
+    let userId = existingAppUser?.id ?? authUser.id;
     const now = new Date().toISOString();
     const fallbackLocation = WOMEN_ROSTER_LOCATION[woman.name] ?? WOMEN_ROSTER_LOCATION.Isabelle;
 
     const { error: upsertUserError } = await supabase.from("users").upsert(
       {
         id: userId,
-        email: woman.email,
+        email: userEmail,
         name: woman.name,
         updated_at: now
       },
       { onConflict: "id" }
     );
     if (upsertUserError) {
-      throw new ApiError(500, upsertUserError.message);
+      const lower = upsertUserError.message.toLowerCase();
+      const isEmailConflict =
+        lower.includes("users_email_key") ||
+        (lower.includes("duplicate key") && lower.includes("email"));
+      if (!isEmailConflict) {
+        throw new ApiError(500, upsertUserError.message);
+      }
+
+      const { data: existingByEmail, error: existingByEmailError } = await supabase
+        .from("users")
+        .select("id, email, name, created_at")
+        .eq("email", userEmail)
+        .maybeSingle();
+
+      if (existingByEmailError) {
+        throw new ApiError(500, existingByEmailError.message);
+      }
+      if (!existingByEmail) {
+        throw new ApiError(500, upsertUserError.message);
+      }
+      userId = existingByEmail.id;
     }
 
     const profilePayload: Record<string, unknown> = {
@@ -1157,6 +1454,27 @@ async function syncWomenRosterUsers() {
     if (upsertProfileError) {
       throw new ApiError(500, upsertProfileError.message);
     }
+
+    existingAppByEmail.set(userEmail, {
+      id: userId,
+      email: userEmail,
+      name: woman.name,
+      created_at: now
+    });
+    existingAppByEmail.set(woman.email.toLowerCase(), {
+      id: userId,
+      email: userEmail,
+      name: woman.name,
+      created_at: now
+    });
+    for (const alias of woman.aliases ?? []) {
+      existingAppByEmail.set(alias.toLowerCase(), {
+        id: userId,
+        email: userEmail,
+        name: woman.name,
+        created_at: now
+      });
+    }
   }
 
   invalidateUsersCache();
@@ -1164,7 +1482,7 @@ async function syncWomenRosterUsers() {
 
 async function ensureWomenRosterUsers() {
   const now = Date.now();
-  if (now - lastWomenRosterSyncAt < 120000) {
+  if (now - lastWomenRosterSyncAt < 10_000) {
     return;
   }
 
@@ -1180,6 +1498,87 @@ async function ensureWomenRosterUsers() {
   });
 
   return womenRosterSyncPromise;
+}
+
+async function syncAuthUsersIntoAppUsers() {
+  const supabase = getSupabaseAdminClient();
+  const { data: authUsersPage, error: authUsersError } = await supabase.auth.admin.listUsers({
+    page: 1,
+    perPage: 1000
+  });
+
+  if (authUsersError) {
+    throw new ApiError(500, authUsersError.message);
+  }
+
+  const authUsers = authUsersPage.users ?? [];
+  const authIds = authUsers.map((user) => user.id);
+  if (authIds.length === 0) {
+    return;
+  }
+
+  const existingRows = await getUserRowsByIds(authIds);
+  const existingIds = new Set(existingRows.map((row) => row.id));
+  const missingUsers = authUsers.filter((user) => !existingIds.has(user.id));
+
+  if (missingUsers.length === 0) {
+    return;
+  }
+
+  const upsertRows = missingUsers
+    .map((authUser) => {
+      const email = authUser.email?.trim().toLowerCase();
+      if (!email) {
+        return null;
+      }
+      const metadataName =
+        typeof authUser.user_metadata?.name === "string"
+          ? authUser.user_metadata.name
+          : typeof authUser.user_metadata?.full_name === "string"
+            ? authUser.user_metadata.full_name
+            : null;
+
+      return {
+        id: authUser.id,
+        email,
+        name: (metadataName?.trim() || email.split("@")[0] || "Developer").slice(0, 80),
+        updated_at: new Date().toISOString()
+      };
+    })
+    .filter((row): row is { id: string; email: string; name: string; updated_at: string } => Boolean(row));
+
+  if (upsertRows.length === 0) {
+    return;
+  }
+
+  const { error: upsertError } = await supabase.from("users").upsert(upsertRows, {
+    onConflict: "id"
+  });
+  if (upsertError) {
+    throw new ApiError(500, upsertError.message);
+  }
+
+  invalidateUsersCache();
+}
+
+async function ensureAuthUsersInAppTable() {
+  const now = Date.now();
+  if (now - lastAuthAppUserSyncAt < 30_000) {
+    return;
+  }
+
+  if (authAppUserSyncPromise) {
+    return authAppUserSyncPromise;
+  }
+
+  authAppUserSyncPromise = (async () => {
+    await syncAuthUsersIntoAppUsers();
+    lastAuthAppUserSyncAt = Date.now();
+  })().finally(() => {
+    authAppUserSyncPromise = null;
+  });
+
+  return authAppUserSyncPromise;
 }
 
 export async function uploadProfileImage(input: {
@@ -1268,10 +1667,17 @@ export async function listUsers() {
     return usersCache.data;
   }
 
-  void ensureWomenRosterUsers().catch((error) => {
-    console.warn("Women roster sync skipped:", error);
-  });
   await ensureMatchingProfileColumns();
+  try {
+    await ensureWomenRosterUsers();
+  } catch (error) {
+    console.warn("Women roster sync skipped:", error);
+  }
+  try {
+    await ensureAuthUsersInAppTable();
+  } catch (error) {
+    console.warn("Auth user sync skipped:", error);
+  }
 
   const supabase = getSupabaseAdminClient();
   const { data: userRows, error: usersError } = await supabase
@@ -1297,7 +1703,7 @@ export async function listUsers() {
 
 export async function getUserById(userId: string) {
   const supabase = getSupabaseAdminClient();
-  const { data: userRow, error: userError } = await supabase
+  let { data: userRow, error: userError } = await supabase
     .from("users")
     .select("id, email, name, created_at")
     .eq("id", userId)
@@ -1308,13 +1714,19 @@ export async function getUserById(userId: string) {
   }
 
   if (!userRow) {
-    throw new ApiError(404, "User not found");
+    const resolvedRows = await resolveUserRowsByRequestedIds([userId]);
+    const resolved = resolvedRows.get(userId);
+    if (!resolved) {
+      throw new ApiError(404, "User not found");
+    }
+    userRow = resolved;
   }
 
+  const profileUserId = userRow.id ?? userId;
   const { data: profileRow, error: profileError } = await supabase
     .from("profiles")
     .select("*")
-    .eq("user_id", userId)
+    .eq("user_id", profileUserId)
     .maybeSingle();
 
   if (profileError) {
@@ -1895,12 +2307,13 @@ export async function getMatchesForUser(userId: string) {
     return [];
   }
 
-  const userRows = await getUserRowsByIds(
-    [...new Set(matches.flatMap((match) => [match.user_a_id, match.user_b_id]))]
+  const participantIds = [...new Set(matches.flatMap((match) => [match.user_a_id, match.user_b_id]))];
+  const resolvedByRequestedId = await resolveUserRowsByRequestedIds(participantIds);
+  const canonicalProfileIds = [...new Set([...resolvedByRequestedId.values()].map((row) => row.id))];
+  const profileRows = await getProfileRowsByUserIds(canonicalProfileIds);
+  const profileByCanonicalUserId = new Map(
+    profileRows.map((profile) => [profile.user_id, mapProfile(profile)])
   );
-  const userById = new Map(userRows.map((user) => [user.id, user]));
-  const profileRows = await getProfileRowsByUserIds([...new Set(userRows.map((user) => user.id))]);
-  const profileByUserId = new Map(profileRows.map((profile) => [profile.user_id, mapProfile(profile)]));
 
   const { data: roomRows, error: roomError } = await supabase
     .from("chat_rooms")
@@ -1917,20 +2330,26 @@ export async function getMatchesForUser(userId: string) {
   const roomByMatchId = new Map((roomRows ?? []).map((room) => [room.match_id, room]));
 
   return matches.map((match) => {
-    const userA = userById.get(match.user_a_id);
-    const userB = userById.get(match.user_b_id);
+    const userA = resolvedByRequestedId.get(match.user_a_id);
+    const userB = resolvedByRequestedId.get(match.user_b_id);
+    const userAProfile = profileByCanonicalUserId.get(userA?.id ?? match.user_a_id);
+    const userBProfile = profileByCanonicalUserId.get(userB?.id ?? match.user_b_id);
 
     return {
       id: match.id,
       userA: {
         id: match.user_a_id,
         name: userA?.name ?? "Unknown",
-        profileImage: profileByUserId.get(match.user_a_id)?.profileImage ?? null
+        profileImage:
+          userAProfile?.profileImage ??
+          resolveRosterFallbackImage(userA?.email ?? null, userA?.name ?? null)
       },
       userB: {
         id: match.user_b_id,
         name: userB?.name ?? "Unknown",
-        profileImage: profileByUserId.get(match.user_b_id)?.profileImage ?? null
+        profileImage:
+          userBProfile?.profileImage ??
+          resolveRosterFallbackImage(userB?.email ?? null, userB?.name ?? null)
       },
       room: roomByMatchId.has(match.id)
         ? {
@@ -2012,10 +2431,13 @@ export async function getChatMessages(matchId: string, userId: string, limit: nu
   }
 
   const messages = messageRows ?? [];
-  const senderRows = await getUserRowsByIds([...new Set(messages.map((message) => message.sender_id))]);
-  const senderById = new Map(senderRows.map((sender) => [sender.id, sender]));
+  const senderByRequestedId = await resolveUserRowsByRequestedIds(
+    [...new Set(messages.map((message) => message.sender_id))]
+  );
 
-  return messages.map((message) => mapChatMessage(message, senderById.get(message.sender_id) ?? null));
+  return messages.map((message) =>
+    mapChatMessage(message, senderByRequestedId.get(message.sender_id) ?? null)
+  );
 }
 
 export async function createChatMessage(
@@ -2048,8 +2470,8 @@ export async function createChatMessage(
     throw new ApiError(500, messageError.message);
   }
 
-  const senderRows = await getUserRowsByIds([senderId]);
-  return mapChatMessage(messageRow, senderRows[0] ?? null);
+  const senderByRequestedId = await resolveUserRowsByRequestedIds([senderId]);
+  return mapChatMessage(messageRow, senderByRequestedId.get(senderId) ?? null);
 }
 
 function buildDemoConversation(

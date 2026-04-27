@@ -8,8 +8,8 @@ import { RequireAuth } from "@/components/require-auth";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { isProfileComplete } from "@/lib/profile-complete";
-import { InterestRequest, ProfileGender, User } from "@/lib/types";
-import { ChevronDown, ChevronUp, Code2, Heart, Terminal, X } from "lucide-react";
+import { InterestRequest, Match, ProfileGender, User } from "@/lib/types";
+import { ChevronDown, ChevronUp, Code2, Heart, MapPin, Send, Terminal, X } from "lucide-react";
 
 type RosterDefaults = {
   age: number;
@@ -33,6 +33,12 @@ type RosterEntry = {
   image: string;
   aliases?: string[];
   defaults: RosterDefaults;
+};
+
+type PostSolvePrompt = {
+  targetId: string;
+  targetName: string;
+  targetImage: string | null;
 };
 
 const WOMEN_ROSTER: RosterEntry[] = [
@@ -304,6 +310,10 @@ export default function HomePage() {
   const [expandedAttributes, setExpandedAttributes] = useState(false);
   const [radiusMiles, setRadiusMiles] = useState<"ANY" | 5 | 25 | 50 | 100>("ANY");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [openingChallenge, setOpeningChallenge] = useState(false);
+  const [candidateImageLoaded, setCandidateImageLoaded] = useState(false);
+  const [postSolvePrompt, setPostSolvePrompt] = useState<PostSolvePrompt | null>(null);
+  const [firstMessage, setFirstMessage] = useState("");
   const cardRef = useRef<HTMLDivElement | null>(null);
   const dragStartX = useRef<number | null>(null);
   const dragDeltaX = useRef(0);
@@ -311,14 +321,16 @@ export default function HomePage() {
   const usersQuery = useQuery({
     queryKey: ["users"],
     queryFn: () => api.get<User[]>("/users"),
-    staleTime: 30_000
+    staleTime: 30_000,
+    retry: 1
   });
 
   const outgoingQuery = useQuery({
     queryKey: ["outgoing-requests", currentUserId],
     queryFn: () => api.get<string[]>(`/interest/outgoing/${currentUserId}`),
     enabled: Boolean(currentUserId),
-    staleTime: 15_000
+    staleTime: 15_000,
+    retry: 1
   });
 
   const users = usersQuery.data ?? [];
@@ -343,11 +355,11 @@ export default function HomePage() {
       ? basePool.filter((user) => user.profile?.gender === targetGender)
       : basePool;
 
-    const queuePool = genderFilteredPool.length > 0 ? genderFilteredPool : basePool;
+    const genderPool = genderFilteredPool.length > 0 ? genderFilteredPool : basePool;
+    const freshQueuePool = genderPool.filter((user) => !requestedSet.has(user.id));
+    const queuePool = freshQueuePool.length > 0 ? freshQueuePool : genderPool;
 
-    const availableUsers = queuePool.filter((user) => !requestedSet.has(user.id));
-
-    const radiusFiltered = availableUsers.filter((user) => {
+    const radiusFiltered = queuePool.filter((user) => {
       if (radiusMiles === "ANY") {
         return true;
       }
@@ -366,37 +378,11 @@ export default function HomePage() {
       return haversineMiles(sourceLat, sourceLng, candidateLat, candidateLng) <= radiusMiles;
     });
 
-    if (radiusFiltered.length > 0) {
-      return [...radiusFiltered].sort(sortCandidates);
+    if (radiusMiles === "ANY") {
+      return [...queuePool].sort(sortCandidates);
     }
 
-    if (availableUsers.length > 0) {
-      return [...availableUsers].sort(sortCandidates);
-    }
-
-    const recycledPool = queuePool.filter((user) =>
-      radiusMiles === "ANY"
-        ? true
-        : (() => {
-            const sourceLat = currentLatitude;
-            const sourceLng = currentLongitude;
-            if (!isFiniteCoord(sourceLat) || !isFiniteCoord(sourceLng)) {
-              return true;
-            }
-            const candidateLat = user.profile?.latitude;
-            const candidateLng = user.profile?.longitude;
-            if (!isFiniteCoord(candidateLat) || !isFiniteCoord(candidateLng)) {
-              return false;
-            }
-            return haversineMiles(sourceLat, sourceLng, candidateLat, candidateLng) <= radiusMiles;
-          })()
-    );
-
-    if (recycledPool.length > 0) {
-      return [...recycledPool].sort(sortCandidates);
-    }
-
-    return [...basePool].sort(sortCandidates);
+    return [...radiusFiltered].sort(sortCandidates);
   }, [
     currentLatitude,
     currentLongitude,
@@ -406,6 +392,7 @@ export default function HomePage() {
     targetGender,
     users
   ]);
+  const isLoadingQueue = usersQuery.isLoading || outgoingQuery.isLoading;
   const candidate = candidates.length > 0 ? candidates[cursor % candidates.length] : null;
   const candidateRoster = useMemo(
     () => (candidate ? WOMEN_ROSTER_BY_EMAIL.get(candidate.email.toLowerCase()) ?? null : null),
@@ -425,16 +412,18 @@ export default function HomePage() {
         targetId
       }),
     onSuccess: (request) => {
+      setOpeningChallenge(false);
       setActionError(null);
       setActiveRequest(request);
       void queryClient.invalidateQueries({ queryKey: ["outgoing-requests", currentUserId] });
     },
     onError: (error) => {
+      setOpeningChallenge(false);
       const message = error instanceof Error ? error.message : "Failed to open challenge";
       if (message.toLowerCase().includes("already requested")) {
         setActionError(null);
-        setCursor((value) => value + 1);
-        setExpandedAttributes(false);
+        advanceToNextCandidate();
+        void queryClient.invalidateQueries({ queryKey: ["outgoing-requests", currentUserId] });
         return;
       }
       setActionError(message);
@@ -449,8 +438,6 @@ export default function HomePage() {
         submittedCode: input.submittedCode
       }),
     onSuccess: () => {
-      setActiveRequest(null);
-      setCursor((value) => value + 1);
       void queryClient.invalidateQueries({ queryKey: ["matches"] });
       void queryClient.invalidateQueries({ queryKey: ["matches", currentUserId] });
       void queryClient.invalidateQueries({ queryKey: ["build-log"] });
@@ -464,22 +451,64 @@ export default function HomePage() {
       api.post(`/interest/${requestId}/cancel`, { challengerId: currentUserId }),
     onSuccess: () => {
       setActiveRequest(null);
-      setCursor((value) => value + 1);
+      advanceToNextCandidate();
+    }
+  });
+
+  const sendFirstMessageMutation = useMutation({
+    mutationFn: async (input: { targetId: string; message: string }) => {
+      if (!currentUserId) {
+        throw new Error("No signed-in user");
+      }
+
+      const trimmed = input.message.trim();
+      if (!trimmed) {
+        return null;
+      }
+
+      const matches = await api.get<Match[]>(`/matches/${currentUserId}`);
+      const match = matches.find(
+        (candidateMatch) =>
+          (candidateMatch.userA.id === currentUserId && candidateMatch.userB.id === input.targetId) ||
+          (candidateMatch.userB.id === currentUserId && candidateMatch.userA.id === input.targetId)
+      );
+
+      if (!match) {
+        throw new Error("Chat thread is still syncing. Please try again.");
+      }
+
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("gitlove_last_active_match_id", match.id);
+      }
+
+      return api.post(`/chat/${match.id}/messages`, {
+        senderId: currentUserId,
+        content: trimmed,
+        format: "TEXT"
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["matches", currentUserId] });
     }
   });
 
   function swipeLeft() {
-    if (!candidate || activeRequest || openMutation.isPending) return;
+    if (!candidate || activeRequest || openMutation.isPending || openingChallenge) return;
     setActionError(null);
-    setCursor((value) => value + 1);
-    setExpandedAttributes(false);
+    animateSwipe("left", () => {
+      setCursor((value) => value + 1);
+      setExpandedAttributes(false);
+    });
   }
 
   function swipeRight() {
-    if (!candidate || !currentUserId || activeRequest || openMutation.isPending) return;
+    if (!candidate || !currentUserId || activeRequest || openMutation.isPending || openingChallenge) return;
     setActionError(null);
-    resetDragTransform(false);
-    openMutation.mutate(candidate.id);
+    const targetId = candidate.id;
+    setOpeningChallenge(true);
+    animateSwipe("right", () => {
+      openMutation.mutate(targetId);
+    });
   }
 
   function applyDragTransform(value: number) {
@@ -517,7 +546,7 @@ export default function HomePage() {
   }
 
   function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
-    if (activeRequest || openMutation.isPending) {
+    if (activeRequest || openMutation.isPending || openingChallenge) {
       return;
     }
     const target = event.target as HTMLElement | null;
@@ -554,7 +583,7 @@ export default function HomePage() {
       return;
     }
     if (delta < -90) {
-      animateSwipe("left", swipeLeft);
+      swipeLeft();
       return;
     }
 
@@ -564,6 +593,10 @@ export default function HomePage() {
   useEffect(() => {
     resetDragTransform(false);
   }, [candidate?.id]);
+
+  useEffect(() => {
+    setCandidateImageLoaded(!candidateImage);
+  }, [candidate?.id, candidateImage]);
 
   useEffect(() => {
     if (!currentUserId || usersQuery.isLoading) {
@@ -578,13 +611,12 @@ export default function HomePage() {
     ? [
         ["Occupation", candidate.profile?.occupation ?? candidateRoster?.defaults.occupation ?? "Software Engineer"],
         ["Age", String(candidate.profile?.age ?? candidateRoster?.defaults.age ?? 24)],
-        ["Hobbies", candidate.profile?.hobbies?.join(", ") || candidateRoster?.defaults.hobbies.join(", ") || "Coding, Travel, Coffee"],
-        ["IDE", candidate.profile?.editorChoice ?? candidateRoster?.defaults.editorChoice ?? "VS Code"],
-        ["Language", candidate.profile?.languageChoice ?? candidateRoster?.defaults.languageChoice ?? "TypeScript"],
-        ["GitHub", normalizeGithub(candidate.profile?.githubUsername ?? candidateRoster?.defaults.githubUsername)],
-        ["Vibe", candidate.profile?.vibeBadge ?? candidateRoster?.defaults.vibeBadge ?? "Real Developer"],
-        ["Framework", candidate.profile?.favoriteFramework ?? candidateRoster?.defaults.favoriteFramework ?? "React"],
-        ["OS", candidate.profile?.favoriteOS ?? candidateRoster?.defaults.favoriteOS ?? "macOS"],
+      ["Hobbies", candidate.profile?.hobbies?.join(", ") || candidateRoster?.defaults.hobbies.join(", ") || "Coding, Travel, Coffee"],
+      ["IDE", candidate.profile?.editorChoice ?? candidateRoster?.defaults.editorChoice ?? "VS Code"],
+      ["Language", candidate.profile?.languageChoice ?? candidateRoster?.defaults.languageChoice ?? "TypeScript"],
+      ["Vibe", candidate.profile?.vibeBadge ?? candidateRoster?.defaults.vibeBadge ?? "Real Developer"],
+      ["Framework", candidate.profile?.favoriteFramework ?? candidateRoster?.defaults.favoriteFramework ?? "React"],
+      ["OS", candidate.profile?.favoriteOS ?? candidateRoster?.defaults.favoriteOS ?? "macOS"],
         ["Data Structure", candidate.profile?.favoriteDataStructure ?? candidateRoster?.defaults.favoriteDataStructure ?? "Hash Map"],
         ["Algorithm", candidate.profile?.favoriteAlgorithm ?? candidateRoster?.defaults.favoriteAlgorithm ?? "Two Pointers"],
         ["Challenge Level", candidate.profile?.challengeLevel ?? candidateRoster?.defaults.challengeLevel ?? "EASY"]
@@ -595,16 +627,22 @@ export default function HomePage() {
     : "";
   const candidateAge = candidate?.profile?.age ?? candidateRoster?.defaults.age ?? 24;
   const candidateOccupation = candidate?.profile?.occupation ?? candidateRoster?.defaults.occupation ?? "Software Engineer";
+  const candidateLocation = candidate?.profile?.locationText ?? "Location not set";
+
+  function advanceToNextCandidate() {
+    setExpandedAttributes(false);
+    setCursor((value) => value + 1);
+  }
 
   return (
     <RequireAuth>
       <div className="h-screen w-full p-4 pt-4">
-        <div className="mx-auto mb-3 flex w-full max-w-[440px] items-center justify-between rounded-xl border border-line bg-panel/70 px-3 py-2">
-          <div className="text-xs text-muted">
+        <div className="mx-auto mb-3 flex w-full max-w-[560px] items-center gap-3 rounded-xl border border-line bg-panel/70 px-4 py-2.5">
+          <div className="min-w-0 flex-1 truncate text-xs text-muted">
             <span className="font-medium text-text">Location:</span>{" "}
-            {currentUser?.profile?.locationText || "Not set"}
+            <span className="truncate">{currentUser?.profile?.locationText || "Not set"}</span>
           </div>
-          <label className="flex items-center gap-2 text-xs text-muted">
+          <label className="flex shrink-0 items-center gap-2 text-xs text-muted">
             Radius
             <select
               value={radiusMiles}
@@ -626,11 +664,21 @@ export default function HomePage() {
           </label>
         </div>
         <div className="relative mx-auto flex h-[calc(100vh-90px)] w-full max-w-[440px] items-start justify-center">
-          {!candidate ? (
+          {isLoadingQueue ? (
             <div className="text-center p-8 rounded-[2rem] border border-dashed border-line bg-panel/30 w-full shadow-lg">
               <Code2 className="w-12 h-12 text-muted mx-auto mb-4 opacity-50" />
               <h2 className="text-xl font-bold text-text mb-2">Preparing Candidate Queue</h2>
               <p className="text-muted text-sm">Syncing developer profiles...</p>
+            </div>
+          ) : !candidate ? (
+            <div className="text-center p-8 rounded-[2rem] border border-dashed border-line bg-panel/30 w-full shadow-lg">
+              <Code2 className="w-12 h-12 text-muted mx-auto mb-4 opacity-50" />
+              <h2 className="text-xl font-bold text-text mb-2">No nearby developers</h2>
+              <p className="text-muted text-sm">
+                {radiusMiles === "ANY"
+                  ? "No complete profiles are available right now."
+                  : `No candidates found within ${radiusMiles} miles.`}
+              </p>
             </div>
           ) : (
             <div
@@ -646,15 +694,25 @@ export default function HomePage() {
               <div className="absolute inset-0 z-0 bg-panelAlt">
                 {candidateImage ? (
                   <img
+                    key={`${candidate?.id ?? "candidate"}-${candidateImage}`}
                     src={candidateImage}
                     alt={candidateDisplayName}
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
+                    onLoad={() => setCandidateImageLoaded(true)}
+                    onError={() => setCandidateImageLoaded(true)}
+                    className={`h-full w-full object-cover transition-[transform,opacity] duration-500 group-hover:scale-[1.02] ${
+                      candidateImageLoaded ? "opacity-100" : "opacity-0"
+                    }`}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-panelAlt">
                     <Code2 className="w-20 h-20 text-muted/30" />
                   </div>
                 )}
+                {!candidateImageLoaded ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-panelAlt">
+                    <Code2 className="w-16 h-16 text-muted/30" />
+                  </div>
+                ) : null}
               </div>
 
               <div className="absolute inset-0 z-10 bg-gradient-to-t from-[#05030A] via-[#05030A]/50 to-transparent pointer-events-none" />
@@ -668,6 +726,10 @@ export default function HomePage() {
                 <div className="text-lg text-accent font-medium mb-4 flex items-center gap-2 drop-shadow-sm">
                   <Terminal className="w-4 h-4" />
                   {candidateOccupation}
+                </div>
+                <div className="mb-4 flex items-center gap-2 text-sm text-white/85 drop-shadow-sm">
+                  <MapPin className="h-4 w-4 text-white/70" />
+                  <span>{candidateLocation}</span>
                 </div>
 
                 <div className="rounded-2xl border border-white/15 bg-black/35 backdrop-blur-sm">
@@ -720,7 +782,7 @@ export default function HomePage() {
                   data-action-button="true"
                   onPointerDown={(event) => event.stopPropagation()}
                   onClick={swipeLeft}
-                  disabled={openMutation.isPending || Boolean(activeRequest)}
+                  disabled={openMutation.isPending || Boolean(activeRequest) || openingChallenge}
                   className="group flex flex-col items-center gap-1 transition-transform hover:scale-110 active:scale-95"
                 >
                   <div className="w-16 h-16 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-red-400 group-hover:bg-red-500/20 group-hover:border-red-500/50 group-hover:text-red-400 transition-all shadow-xl">
@@ -732,7 +794,7 @@ export default function HomePage() {
                   data-action-button="true"
                   onPointerDown={(event) => event.stopPropagation()}
                   onClick={swipeRight}
-                  disabled={openMutation.isPending || !currentUserId || Boolean(activeRequest)}
+                  disabled={openMutation.isPending || !currentUserId || Boolean(activeRequest) || openingChallenge}
                   className="group flex flex-col items-center gap-1 transition-transform hover:scale-110 active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
                 >
                   <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-accent to-purple-500 text-white flex items-center justify-center shadow-[0_0_30px_rgba(56,189,248,0.5)] group-hover:shadow-[0_0_40px_rgba(56,189,248,0.7)] transition-all">
@@ -743,6 +805,13 @@ export default function HomePage() {
             </div>
           )}
         </div>
+        {openingChallenge ? (
+          <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[1px]">
+            <div className="rounded-full border border-line bg-panel/90 px-4 py-2 text-xs font-medium text-text shadow-xl">
+              Opening challenge...
+            </div>
+          </div>
+        ) : null}
         {actionError ? (
           <div className="mx-auto mt-3 max-w-[440px] rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
             {actionError}
@@ -756,7 +825,7 @@ export default function HomePage() {
       ) : null}
       {outgoingQuery.isError ? (
         <div className="mx-auto mt-2 max-w-[440px] rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-          Could not refresh request queue, using fallback candidate rotation.
+          Could not refresh request queue. Some profiles may appear out of date.
         </div>
       ) : null}
 
@@ -765,11 +834,24 @@ export default function HomePage() {
           challenge={activeRequest.challenge}
           busy={attemptMutation.isPending || cancelMutation.isPending}
           onPass={async (code) => {
+            const solvedTargetId = activeRequest.targetId;
+            const solvedTargetUser = users.find((user) => user.id === solvedTargetId) ?? null;
+            const solvedTargetRoster = solvedTargetUser
+              ? WOMEN_ROSTER_BY_EMAIL.get(solvedTargetUser.email.toLowerCase()) ?? null
+              : null;
+
             await attemptMutation.mutateAsync({
               requestId: activeRequest.id,
               passed: true,
               submittedCode: code
             });
+            setActiveRequest(null);
+            setPostSolvePrompt({
+              targetId: solvedTargetId,
+              targetName: solvedTargetRoster?.name ?? solvedTargetUser?.name ?? "Developer",
+              targetImage: solvedTargetUser?.profile?.profileImage ?? solvedTargetRoster?.image ?? null
+            });
+            setFirstMessage("");
           }}
           onFail={async (code) => {
             await attemptMutation.mutateAsync({
@@ -777,27 +859,86 @@ export default function HomePage() {
               passed: false,
               submittedCode: code
             });
+            setActiveRequest(null);
+            advanceToNextCandidate();
           }}
           onAbandon={async () => {
             await cancelMutation.mutateAsync(activeRequest.id);
           }}
-          onClose={() => setActiveRequest(null)}
         />
       )}
+      {postSolvePrompt ? (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-line bg-panel p-5 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                {postSolvePrompt.targetImage ? (
+                  <img
+                    src={postSolvePrompt.targetImage}
+                    alt={postSolvePrompt.targetName}
+                    className="h-14 w-14 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-panelAlt text-lg font-semibold text-text">
+                    {postSolvePrompt.targetName.slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm text-muted">Request sent</p>
+                  <h3 className="text-lg font-semibold text-text">{postSolvePrompt.targetName}</h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setPostSolvePrompt(null);
+                  setFirstMessage("");
+                  advanceToNextCandidate();
+                }}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-line bg-panelAlt text-muted transition hover:text-text"
+                aria-label="Close message prompt"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <textarea
+              value={firstMessage}
+              onChange={(event) => setFirstMessage(event.target.value)}
+              placeholder="Send your first message..."
+              className="min-h-[120px] w-full resize-none rounded-2xl border border-line bg-panelAlt px-3 py-2 text-sm text-text outline-none focus:border-accent"
+            />
+
+            {sendFirstMessageMutation.isError ? (
+              <p className="mt-2 text-xs text-rose-300">
+                {sendFirstMessageMutation.error instanceof Error
+                  ? sendFirstMessageMutation.error.message
+                  : "Failed to send message"}
+              </p>
+            ) : null}
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  await sendFirstMessageMutation.mutateAsync({
+                    targetId: postSolvePrompt.targetId,
+                    message: firstMessage
+                  });
+                  setPostSolvePrompt(null);
+                  setFirstMessage("");
+                  advanceToNextCandidate();
+                }}
+                disabled={sendFirstMessageMutation.isPending}
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-cyan-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                <Send className="h-4 w-4" />
+                {sendFirstMessageMutation.isPending ? "Sending..." : "Send Message"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </RequireAuth>
   );
-}
-
-function normalizeGithub(value: string | null | undefined) {
-  if (!value) {
-    return "Not set";
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return "Not set";
-  }
-  if (trimmed.includes("/") || trimmed.includes("\\")) {
-    return "Not set";
-  }
-  return trimmed;
 }

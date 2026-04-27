@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { isProfileComplete } from "@/lib/profile-complete";
 import { uploadProfileImageFile } from "@/lib/profile-image-upload";
+import { LocationAutocomplete } from "@/components/location-autocomplete";
 import { ProfileGender, User } from "@/lib/types";
 import { ImagePlus, MapPinned } from "lucide-react";
 
@@ -20,7 +21,6 @@ type FormState = {
   hobbyThree: string;
   editorChoice: string;
   languageChoice: string;
-  githubUsername: string;
   vibeBadge: string;
   favoriteFramework: string;
   favoriteOS: string;
@@ -42,7 +42,6 @@ const EMPTY_FORM: FormState = {
   hobbyThree: "",
   editorChoice: "",
   languageChoice: "",
-  githubUsername: "",
   vibeBadge: "",
   favoriteFramework: "",
   favoriteOS: "",
@@ -90,7 +89,6 @@ export default function ProfileOnboardingPage() {
       hobbyThree: user.profile?.hobbies?.[2] ?? "",
       editorChoice: user.profile?.editorChoice ?? "",
       languageChoice: user.profile?.languageChoice ?? "",
-      githubUsername: user.profile?.githubUsername ?? "",
       vibeBadge: user.profile?.vibeBadge ?? "",
       favoriteFramework: user.profile?.favoriteFramework ?? "",
       favoriteOS: user.profile?.favoriteOS ?? "",
@@ -116,7 +114,6 @@ export default function ProfileOnboardingPage() {
       hobbies.every(Boolean) &&
       form.editorChoice.trim() &&
       form.languageChoice.trim() &&
-      form.githubUsername.trim() &&
       form.vibeBadge.trim() &&
       form.favoriteFramework.trim() &&
       form.favoriteOS.trim() &&
@@ -142,7 +139,6 @@ export default function ProfileOnboardingPage() {
         hobbies,
         editorChoice: form.editorChoice.trim(),
         languageChoice: form.languageChoice.trim(),
-        githubUsername: form.githubUsername.trim(),
         vibeBadge: form.vibeBadge.trim(),
         favoriteFramework: form.favoriteFramework.trim(),
         favoriteOS: form.favoriteOS.trim(),
@@ -260,21 +256,33 @@ export default function ProfileOnboardingPage() {
               onChange={(value) => setForm((s) => ({ ...s, challengeLevel: value as FormState["challengeLevel"] }))}
               options={["EASY", "MEDIUM", "HARD"]}
             />
-            <Input
+            <LocationAutocomplete
               label="Exact Location (City, State, Country)"
               value={form.locationText}
-              onChange={(value) => setForm((s) => ({ ...s, locationText: value }))}
+              onChange={(value) =>
+                setForm((s) => ({ ...s, locationText: value, latitude: "", longitude: "" }))
+              }
+              onSelect={(suggestion) =>
+                setForm((s) => ({
+                  ...s,
+                  locationText: suggestion.label,
+                  latitude: suggestion.latitude.toFixed(6),
+                  longitude: suggestion.longitude.toFixed(6)
+                }))
+              }
             />
             <div className="md:col-span-2 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
               <Input
                 label="Latitude"
                 value={form.latitude}
-                onChange={(value) => setForm((s) => ({ ...s, latitude: value }))}
+                onChange={() => undefined}
+                readOnly
               />
               <Input
                 label="Longitude"
                 value={form.longitude}
-                onChange={(value) => setForm((s) => ({ ...s, longitude: value }))}
+                onChange={() => undefined}
+                readOnly
               />
               <div className="self-end">
                 <button
@@ -300,11 +308,6 @@ export default function ProfileOnboardingPage() {
               label="Programming Language"
               value={form.languageChoice}
               onChange={(value) => setForm((s) => ({ ...s, languageChoice: value }))}
-            />
-            <Input
-              label="GitHub Username"
-              value={form.githubUsername}
-              onChange={(value) => setForm((s) => ({ ...s, githubUsername: value }))}
             />
             <Input
               label="Vibe Badge"
@@ -357,12 +360,14 @@ function Input({
   label,
   value,
   onChange,
-  type = "text"
+  type = "text",
+  readOnly = false
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: "text" | "number";
+  readOnly?: boolean;
 }) {
   return (
     <div>
@@ -370,8 +375,9 @@ function Input({
       <input
         value={value}
         type={type}
+        readOnly={readOnly}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 w-full rounded-lg border border-line bg-panelAlt px-3 py-2 text-sm text-text outline-none focus:border-accent"
+        className="mt-1 w-full rounded-lg border border-line bg-panelAlt px-3 py-2 text-sm text-text outline-none focus:border-accent read-only:cursor-not-allowed read-only:opacity-80"
       />
     </div>
   );

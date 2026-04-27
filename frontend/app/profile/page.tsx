@@ -6,7 +6,8 @@ import { RequireAuth } from "@/components/require-auth";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { uploadProfileImageFile } from "@/lib/profile-image-upload";
-import { ProfileGender, User } from "@/lib/types";
+import { LocationAutocomplete } from "@/components/location-autocomplete";
+import { User } from "@/lib/types";
 import { ImagePlus, Pencil, Save } from "lucide-react";
 
 type ProfileForm = {
@@ -16,13 +17,11 @@ type ProfileForm = {
   hobbies: string;
   editorChoice: string;
   languageChoice: string;
-  githubUsername: string;
   vibeBadge: string;
   favoriteFramework: string;
   favoriteOS: string;
   favoriteDataStructure: string;
   favoriteAlgorithm: string;
-  gender: ProfileGender;
   locationText: string;
   latitude: string;
   longitude: string;
@@ -36,18 +35,109 @@ const initialForm: ProfileForm = {
   hobbies: "",
   editorChoice: "",
   languageChoice: "",
-  githubUsername: "",
   vibeBadge: "",
   favoriteFramework: "",
   favoriteOS: "",
   favoriteDataStructure: "",
   favoriteAlgorithm: "",
-  gender: "MALE",
   locationText: "",
   latitude: "",
   longitude: "",
   challengeLevel: "EASY"
 };
+
+const OCCUPATION_OPTIONS = [
+  "Software Engineer",
+  "Frontend Engineer",
+  "Backend Developer",
+  "Full-Stack Engineer",
+  "Platform Engineer",
+  "Data Engineer",
+  "AI Engineer",
+  "Cloud Engineer",
+  "Site Reliability Engineer",
+  "Mobile Engineer",
+  "Security Engineer",
+  "DevOps Engineer"
+];
+
+const AGE_OPTIONS = Array.from({ length: 43 }, (_, index) => String(index + 18));
+
+const EDITOR_OPTIONS = [
+  "VS Code",
+  "Cursor",
+  "Neovim",
+  "Vim",
+  "JetBrains IDEA",
+  "WebStorm",
+  "IntelliJ",
+  "Xcode",
+  "Zed"
+];
+
+const LANGUAGE_OPTIONS = [
+  "TypeScript",
+  "JavaScript",
+  "Python",
+  "Java",
+  "Go",
+  "Rust",
+  "Kotlin",
+  "Swift",
+  "C#",
+  "C++"
+];
+
+const VIBE_OPTIONS = ["Real Developer", "Vibe Coder"];
+
+const FRAMEWORK_OPTIONS = [
+  "React",
+  "Next.js",
+  "Vue",
+  "Angular",
+  "FastAPI",
+  "Django",
+  "Spring Boot",
+  "Express",
+  "NestJS",
+  "Gin",
+  "Axum",
+  "SwiftUI",
+  "PyTorch",
+  "Terraform",
+  "Kubernetes"
+];
+
+const OS_OPTIONS = ["macOS", "Linux", "Windows"];
+
+const DATA_STRUCTURE_OPTIONS = [
+  "Array",
+  "Hash Map",
+  "Queue",
+  "Stack",
+  "Linked List",
+  "Heap",
+  "Tree",
+  "Graph",
+  "Set",
+  "Trie",
+  "Matrix",
+  "Priority Queue"
+];
+
+const ALGORITHM_OPTIONS = [
+  "Two Pointers",
+  "Sliding Window",
+  "Binary Search",
+  "BFS",
+  "DFS",
+  "Dijkstra",
+  "Greedy",
+  "Backtracking",
+  "Dynamic Programming",
+  "Topological Sort",
+  "Merge Sort"
+];
 
 export default function ProfilePage() {
   const queryClient = useQueryClient();
@@ -75,13 +165,11 @@ export default function ProfilePage() {
       hobbies: user.profile?.hobbies?.join(", ") ?? "",
       editorChoice: user.profile?.editorChoice ?? "",
       languageChoice: user.profile?.languageChoice ?? "",
-      githubUsername: user.profile?.githubUsername ?? "",
       vibeBadge: user.profile?.vibeBadge ?? "",
       favoriteFramework: user.profile?.favoriteFramework ?? "",
       favoriteOS: user.profile?.favoriteOS ?? "",
       favoriteDataStructure: user.profile?.favoriteDataStructure ?? "",
       favoriteAlgorithm: user.profile?.favoriteAlgorithm ?? "",
-      gender: user.profile?.gender ?? "MALE",
       locationText: user.profile?.locationText ?? "",
       latitude: typeof user.profile?.latitude === "number" ? String(user.profile.latitude) : "",
       longitude: typeof user.profile?.longitude === "number" ? String(user.profile.longitude) : "",
@@ -109,13 +197,11 @@ export default function ProfilePage() {
         hobbies,
         editorChoice: nullable(form.editorChoice),
         languageChoice: nullable(form.languageChoice),
-        githubUsername: nullable(form.githubUsername),
         vibeBadge: nullable(form.vibeBadge),
         favoriteFramework: nullable(form.favoriteFramework),
         favoriteOS: nullable(form.favoriteOS),
         favoriteDataStructure: nullable(form.favoriteDataStructure),
         favoriteAlgorithm: nullable(form.favoriteAlgorithm),
-        gender: form.gender,
         locationText: nullable(form.locationText),
         latitude: parseNullableNumber(form.latitude),
         longitude: parseNullableNumber(form.longitude),
@@ -173,11 +259,9 @@ export default function ProfilePage() {
       ["OS", user?.profile?.favoriteOS || "Not set"],
       ["Data Structure", user?.profile?.favoriteDataStructure || "Not set"],
       ["Algorithm", user?.profile?.favoriteAlgorithm || "Not set"],
-      ["Gender", user?.profile?.gender || "Not set"],
       ["Location", user?.profile?.locationText || "Not set"],
       ["Editor", user?.profile?.editorChoice || "Not set"],
       ["Vibe", user?.profile?.vibeBadge || "Not set"],
-      ["GitHub", user?.profile?.githubUsername || "Not set"],
       ["Challenge Level", user?.profile?.challengeLevel || "EASY"],
       ["Hobbies", user?.profile?.hobbies?.join(", ") || "Not set"]
     ],
@@ -275,31 +359,76 @@ export default function ProfilePage() {
             {editing ? (
               <div className="mt-5 grid gap-3 md:grid-cols-2">
                 <Input label="Name" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
-                <Input label="Occupation" value={form.occupation} onChange={(v) => setForm((f) => ({ ...f, occupation: v }))} />
-                <Input label="Age" value={form.age} onChange={(v) => setForm((f) => ({ ...f, age: v }))} />
+                <SelectField
+                  label="Occupation"
+                  value={form.occupation}
+                  options={OCCUPATION_OPTIONS}
+                  onChange={(v) => setForm((f) => ({ ...f, occupation: v }))}
+                />
+                <SelectField
+                  label="Age"
+                  value={form.age}
+                  options={AGE_OPTIONS}
+                  onChange={(v) => setForm((f) => ({ ...f, age: v }))}
+                />
                 <Input label="Hobbies (comma-separated, max 3)" value={form.hobbies} onChange={(v) => setForm((f) => ({ ...f, hobbies: v }))} />
-                <Input label="IDE / Editor Choice" value={form.editorChoice} onChange={(v) => setForm((f) => ({ ...f, editorChoice: v }))} />
-                <Input label="Programming Language" value={form.languageChoice} onChange={(v) => setForm((f) => ({ ...f, languageChoice: v }))} />
-                <Input label="GitHub Username" value={form.githubUsername} onChange={(v) => setForm((f) => ({ ...f, githubUsername: v }))} />
-                <Input label="Vibe Badge" value={form.vibeBadge} onChange={(v) => setForm((f) => ({ ...f, vibeBadge: v }))} />
-                <Input label="Favorite Framework" value={form.favoriteFramework} onChange={(v) => setForm((f) => ({ ...f, favoriteFramework: v }))} />
-                <Input label="Favorite OS" value={form.favoriteOS} onChange={(v) => setForm((f) => ({ ...f, favoriteOS: v }))} />
-                <Input label="Favorite Data Structure" value={form.favoriteDataStructure} onChange={(v) => setForm((f) => ({ ...f, favoriteDataStructure: v }))} />
-                <Input label="Favorite Algorithm" value={form.favoriteAlgorithm} onChange={(v) => setForm((f) => ({ ...f, favoriteAlgorithm: v }))} />
-                <div>
-                  <label className="text-xs text-muted">Gender</label>
-                  <select
-                    value={form.gender}
-                    onChange={(event) => setForm((current) => ({ ...current, gender: event.target.value as ProfileGender }))}
-                    className="mt-1 w-full rounded-xl border border-line bg-panelAlt px-3 py-2 text-sm text-text"
-                  >
-                    <option value="MALE">Male</option>
-                    <option value="FEMALE">Female</option>
-                  </select>
-                </div>
-                <Input label="Location" value={form.locationText} onChange={(v) => setForm((f) => ({ ...f, locationText: v }))} />
-                <Input label="Latitude" value={form.latitude} onChange={(v) => setForm((f) => ({ ...f, latitude: v }))} />
-                <Input label="Longitude" value={form.longitude} onChange={(v) => setForm((f) => ({ ...f, longitude: v }))} />
+                <SelectField
+                  label="IDE / Editor Choice"
+                  value={form.editorChoice}
+                  options={EDITOR_OPTIONS}
+                  onChange={(v) => setForm((f) => ({ ...f, editorChoice: v }))}
+                />
+                <SelectField
+                  label="Programming Language"
+                  value={form.languageChoice}
+                  options={LANGUAGE_OPTIONS}
+                  onChange={(v) => setForm((f) => ({ ...f, languageChoice: v }))}
+                />
+                <SelectField
+                  label="Vibe Badge"
+                  value={form.vibeBadge}
+                  options={VIBE_OPTIONS}
+                  onChange={(v) => setForm((f) => ({ ...f, vibeBadge: v }))}
+                />
+                <SelectField
+                  label="Favorite Framework"
+                  value={form.favoriteFramework}
+                  options={FRAMEWORK_OPTIONS}
+                  onChange={(v) => setForm((f) => ({ ...f, favoriteFramework: v }))}
+                />
+                <SelectField
+                  label="Favorite OS"
+                  value={form.favoriteOS}
+                  options={OS_OPTIONS}
+                  onChange={(v) => setForm((f) => ({ ...f, favoriteOS: v }))}
+                />
+                <SelectField
+                  label="Favorite Data Structure"
+                  value={form.favoriteDataStructure}
+                  options={DATA_STRUCTURE_OPTIONS}
+                  onChange={(v) => setForm((f) => ({ ...f, favoriteDataStructure: v }))}
+                />
+                <SelectField
+                  label="Favorite Algorithm"
+                  value={form.favoriteAlgorithm}
+                  options={ALGORITHM_OPTIONS}
+                  onChange={(v) => setForm((f) => ({ ...f, favoriteAlgorithm: v }))}
+                />
+                <LocationAutocomplete
+                  label="Location"
+                  value={form.locationText}
+                  onChange={(v) => setForm((f) => ({ ...f, locationText: v, latitude: "", longitude: "" }))}
+                  onSelect={(suggestion) =>
+                    setForm((f) => ({
+                      ...f,
+                      locationText: suggestion.label,
+                      latitude: suggestion.latitude.toFixed(6),
+                      longitude: suggestion.longitude.toFixed(6)
+                    }))
+                  }
+                />
+                <Input label="Latitude" value={form.latitude} onChange={() => undefined} readOnly />
+                <Input label="Longitude" value={form.longitude} onChange={() => undefined} readOnly />
                 <div className="md:col-span-2">
                   <label className="text-xs text-muted">Challenge Level</label>
                   <select
@@ -355,12 +484,14 @@ function Input({
   label,
   value,
   onChange,
-  type = "text"
+  type = "text",
+  readOnly = false
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: "text" | "password";
+  readOnly?: boolean;
 }) {
   return (
     <div>
@@ -368,9 +499,40 @@ function Input({
       <input
         type={type}
         value={value}
+        readOnly={readOnly}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 w-full rounded-xl border border-line bg-panelAlt px-3 py-2 text-sm text-text read-only:cursor-not-allowed read-only:opacity-80"
+      />
+    </div>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  options,
+  onChange
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <label className="text-xs text-muted">{label}</label>
+      <select
+        value={value}
         onChange={(event) => onChange(event.target.value)}
         className="mt-1 w-full rounded-xl border border-line bg-panelAlt px-3 py-2 text-sm text-text"
-      />
+      >
+        <option value="">Select</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

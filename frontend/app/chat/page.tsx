@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { MessageCircleMore, Search, Send } from "lucide-react";
 import { api } from "@/lib/api";
 import { RequireAuth } from "@/components/require-auth";
@@ -13,6 +14,9 @@ import { ChatMessage, Match } from "@/lib/types";
 
 export default function ChatPage() {
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [requestedMatchId, setRequestedMatchId] = useState<string | null>(null);
   const { currentUserId } = useAuth();
   const [matchId, setMatchId] = useState("");
   const [content, setContent] = useState("");
@@ -22,6 +26,7 @@ export default function ChatPage() {
   const [seedAttempted, setSeedAttempted] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const dmListRef = useRef<HTMLDivElement | null>(null);
 
   const matchesQuery = useQuery({
     queryKey: ["matches", currentUserId],
@@ -52,6 +57,21 @@ export default function ChatPage() {
   });
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const syncRequestedMatchId = () => {
+      setRequestedMatchId(new URLSearchParams(window.location.search).get("matchId"));
+    };
+
+    syncRequestedMatchId();
+    window.addEventListener("popstate", syncRequestedMatchId);
+    return () => {
+      window.removeEventListener("popstate", syncRequestedMatchId);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!currentUserId || seedAttempted || matchesQuery.isLoading) {
       return;
     }
@@ -68,10 +88,31 @@ export default function ChatPage() {
       setMatchId("");
       return;
     }
+    if (requestedMatchId && matches.some((match) => match.id === requestedMatchId)) {
+      if (matchId !== requestedMatchId) {
+        setMatchId(requestedMatchId);
+      }
+      return;
+    }
     if (!matches.some((match) => match.id === matchId)) {
       setMatchId(matches[0].id);
     }
-  }, [matchesQuery.data, matchId]);
+  }, [matchesQuery.data, matchId, requestedMatchId]);
+
+  useEffect(() => {
+    if (!matchId || typeof window === "undefined") {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("matchId") === matchId) {
+      return;
+    }
+
+    params.set("matchId", matchId);
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    setRequestedMatchId(matchId);
+  }, [matchId, pathname, router]);
 
   const messagesQuery = useQuery({
     queryKey: ["messages", matchId, currentUserId],
@@ -112,6 +153,15 @@ export default function ChatPage() {
     node.scrollTop = node.scrollHeight;
   }, [messagesQuery.data, matchId]);
 
+  useEffect(() => {
+    if (!matchId || !dmListRef.current) {
+      return;
+    }
+
+    const selected = dmListRef.current.querySelector<HTMLElement>(`[data-match-id="${matchId}"]`);
+    selected?.scrollIntoView({ block: "nearest" });
+  }, [matchId, matchesQuery.data]);
+
   const sendMutation = useMutation({
     mutationFn: async () => {
       if (!currentUserId) {
@@ -142,13 +192,29 @@ export default function ChatPage() {
   });
 
   const matches = matchesQuery.data ?? [];
+  const prioritizedMatches = useMemo(() => {
+    const boostedId =
+      requestedMatchId ||
+      (typeof window !== "undefined" ? window.localStorage.getItem("gitlove_last_active_match_id") : null);
+    if (!boostedId) {
+      return matches;
+    }
+
+    const index = matches.findIndex((match) => match.id === boostedId);
+    if (index <= 0) {
+      return matches;
+    }
+
+    return [matches[index], ...matches.slice(0, index), ...matches.slice(index + 1)];
+  }, [matches, requestedMatchId]);
+
   const filteredMatches = useMemo(() => {
     const normalized = search.trim().toLowerCase();
-    if (!normalized) return matches;
-    return matches.filter((match) =>
+    if (!normalized) return prioritizedMatches;
+    return prioritizedMatches.filter((match) =>
       `${match.userA.name} ${match.userB.name}`.toLowerCase().includes(normalized)
     );
-  }, [matches, search]);
+  }, [prioritizedMatches, search]);
 
   const selectedMatch = useMemo(
     () => matches.find((match) => match.id === matchId) ?? null,
@@ -186,7 +252,7 @@ export default function ChatPage() {
               </label>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+            <div ref={dmListRef} className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
               {filteredMatches.length === 0 ? (
                 <div className="m-2 rounded-xl border border-line bg-panelAlt p-4 text-sm text-muted">
                   No conversations yet.
@@ -200,6 +266,7 @@ export default function ChatPage() {
                   return (
                     <button
                       key={match.id}
+                      data-match-id={match.id}
                       type="button"
                       onClick={() => setMatchId(match.id)}
                       className={`m-2 flex w-[calc(100%-1rem)] items-center gap-3 rounded-xl border px-3 py-3 text-left transition ${
@@ -238,7 +305,14 @@ export default function ChatPage() {
             <div className="flex items-center justify-between border-b border-line px-5 py-4">
               <div className="flex items-center gap-3">
                 {selectedOtherUser ? (
-                  <Link href={`/users/${selectedOtherUser.id}`} className="flex items-center gap-3">
+                  <Link
+                    href={
+                      matchId
+                        ? `/users/${selectedOtherUser.id}?from=chat&matchId=${encodeURIComponent(matchId)}`
+                        : `/users/${selectedOtherUser.id}`
+                    }
+                    className="flex items-center gap-3"
+                  >
                     {selectedOtherUser.profileImage ? (
                       <img
                         src={selectedOtherUser.profileImage}

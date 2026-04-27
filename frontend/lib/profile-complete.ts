@@ -17,7 +17,6 @@ export function isProfileComplete(user: User | null | undefined) {
     profile.hobbies.length === 3 &&
     hasValue(profile.editorChoice) &&
     hasValue(profile.languageChoice) &&
-    hasValue(profile.githubUsername) &&
     hasValue(profile.vibeBadge) &&
     hasValue(profile.favoriteFramework) &&
     hasValue(profile.favoriteOS) &&

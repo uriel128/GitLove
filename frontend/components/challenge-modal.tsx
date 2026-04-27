@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { Challenge } from "@/lib/types";
-import { ChevronDown, CircleCheckBig, Play, ShieldAlert, TerminalSquare, X } from "lucide-react";
+import { ChevronDown, CircleCheckBig, Play, ShieldAlert, TerminalSquare } from "lucide-react";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -13,7 +13,6 @@ type ChallengeModalProps = {
   onPass: (code: string) => Promise<void>;
   onFail: (code: string) => Promise<void>;
   onAbandon: () => Promise<void>;
-  onClose: () => void;
 };
 
 const PREFERRED_LANGUAGES = [
@@ -90,8 +89,7 @@ export function ChallengeModal({
   busy,
   onPass,
   onFail,
-  onAbandon,
-  onClose
+  onAbandon
 }: ChallengeModalProps) {
   const languages = useMemo(() => {
     const keys = Object.keys(challenge.starterCode ?? {});
@@ -202,14 +200,6 @@ export function ChallengeModal({
             >
               {challenge.difficulty}
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-line bg-panel text-muted transition hover:text-text"
-              aria-label="Close challenge modal"
-            >
-              <X size={15} />
-            </button>
           </div>
         </div>
 
@@ -345,13 +335,6 @@ export function ChallengeModal({
                   className="rounded-md border border-line bg-panel px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white disabled:opacity-50"
                 >
                   Abandon
-                </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="rounded-md border border-line bg-transparent px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white"
-                >
-                  Close
                 </button>
               </div>
             </div>
