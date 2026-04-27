@@ -23,6 +23,10 @@ export function isProfileComplete(user: User | null | undefined) {
     hasValue(profile.favoriteOS) &&
     hasValue(profile.favoriteDataStructure) &&
     hasValue(profile.favoriteAlgorithm) &&
+    (profile.gender === "MALE" || profile.gender === "FEMALE") &&
+    hasValue(profile.locationText) &&
+    typeof profile.latitude === "number" &&
+    typeof profile.longitude === "number" &&
     (profile.challengeLevel === "EASY" ||
       profile.challengeLevel === "MEDIUM" ||
       profile.challengeLevel === "HARD")

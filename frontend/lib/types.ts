@@ -1,4 +1,5 @@
 export type ChallengeDifficulty = "EASY" | "MEDIUM" | "HARD";
+export type ProfileGender = "MALE" | "FEMALE";
 
 export type UserProfile = {
   occupation: string | null;
@@ -13,6 +14,10 @@ export type UserProfile = {
   favoriteOS: string | null;
   favoriteDataStructure: string | null;
   favoriteAlgorithm: string | null;
+  gender: ProfileGender | null;
+  locationText: string | null;
+  latitude: number | null;
+  longitude: number | null;
   challengeLevel: ChallengeDifficulty;
 };
 
@@ -29,9 +34,13 @@ export type AdminManagedUser = {
   name: string;
   createdAt: string;
   lastSignInAt: string | null;
+  bannedUntil: string | null;
   providers: string[];
   hasProfile: boolean;
+  profileImage: string | null;
   occupation: string | null;
+  gender: ProfileGender | null;
+  locationText: string | null;
   challengeLevel: ChallengeDifficulty | null;
 };
 
@@ -55,8 +64,8 @@ export type InterestRequest = {
 
 export type Match = {
   id: string;
-  userA: { id: string; name: string };
-  userB: { id: string; name: string };
+  userA: { id: string; name: string; profileImage: string | null };
+  userB: { id: string; name: string; profileImage: string | null };
   room: { id: string } | null;
 };
 

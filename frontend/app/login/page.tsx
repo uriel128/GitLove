@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, Suspense } from "react";
+import { FormEvent, useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/lib/auth";
 import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -72,6 +72,11 @@ function AuthContent() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void handleSubmit();
   }
 
   async function handleGitHub() {
@@ -183,7 +188,7 @@ function AuthContent() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
+            <form className="flex flex-col gap-4" onSubmit={handleFormSubmit}>
               <button
                 type="button"
                 onClick={() => void handleGitHub()}
@@ -256,8 +261,7 @@ function AuthContent() {
               )}
 
               <button
-                type="button"
-                onClick={() => void handleSubmit()}
+                type="submit"
                 disabled={
                   busy ||
                   !supabaseConfigured ||
@@ -277,7 +281,7 @@ function AuthContent() {
                   "Create Account"
                 )}
               </button>
-            </div>
+            </form>
           )}
         </div>
       </div>

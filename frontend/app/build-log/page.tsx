@@ -2,11 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { ReactNode } from "react";
-import { CheckCircle2, Clock3, GitCommitHorizontal, ShieldCheck, Target, XCircle } from "lucide-react";
+import { CheckCircle2, Clock3, GitCommitHorizontal, Target, XCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { RequireAuth } from "@/components/require-auth";
 import { useAuth } from "@/lib/auth";
-import { User } from "@/lib/types";
 
 type BuildLogResponse = {
   user: { id: string; name: string; email: string };
@@ -38,13 +37,6 @@ type BuildLogResponse = {
 export default function BuildLogPage() {
   const { currentUserId } = useAuth();
 
-  const usersQuery = useQuery({
-    queryKey: ["users"],
-    queryFn: () => api.get<User[]>("/users")
-  });
-
-  const currentUser = (usersQuery.data ?? []).find((user) => user.id === currentUserId) ?? null;
-
   const buildLogQuery = useQuery({
     queryKey: ["build-log", currentUserId],
     queryFn: () => api.get<BuildLogResponse>(`/build-log/${currentUserId}`),
@@ -56,21 +48,13 @@ export default function BuildLogPage() {
   return (
     <RequireAuth>
       <div className="space-y-5">
-        <section className="rounded-xl border border-line bg-gradient-to-r from-panel via-panelAlt/70 to-panel px-5 py-4">
-          <h1 className="text-lg font-semibold text-text">Build Log</h1>
-          <p className="mt-1 text-sm text-muted">
-            {currentUser ? `${currentUser.name} · ${currentUser.email}` : "Loading account"}
-          </p>
-        </section>
-
         {!data ? (
           <section className="rounded-xl border border-line bg-panel px-5 py-6 text-sm text-muted">
             Loading build metrics...
           </section>
         ) : (
           <>
-            <section className="grid gap-3 md:grid-cols-5">
-              <MetricTile icon={<ShieldCheck className="h-4 w-4 text-emerald-400" />} label="Success Rate" value={`${data.systemHealth.successRate}%`} />
+            <section className="grid gap-3 md:grid-cols-4">
               <MetricTile icon={<Target className="h-4 w-4 text-sky-400" />} label="Attempts" value={data.systemHealth.totalAttempts} />
               <MetricTile icon={<CheckCircle2 className="h-4 w-4 text-emerald-400" />} label="Passed" value={data.systemHealth.passedAttempts} />
               <MetricTile icon={<GitCommitHorizontal className="h-4 w-4 text-purple-400" />} label="Commits" value={data.commits} />

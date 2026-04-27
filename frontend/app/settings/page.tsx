@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { ReactNode, useEffect, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Bell, LockKeyhole, Save, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { RequireAuth } from "@/components/require-auth";
 import { useAuth } from "@/lib/auth";
+import { apiRequest } from "@/lib/api";
+import { hasAdminRoleFromAuthUser } from "@/lib/authz";
 
 type SettingsState = {
   notifications: boolean;
@@ -23,11 +26,34 @@ const DEFAULT_SETTINGS: SettingsState = {
 };
 
 export default function SettingsPage() {
-  const { currentUser } = useAuth();
+  const { currentUser, currentUserId, getAccessToken, changePassword } = useAuth();
   const [settings, setSettings] = useState<SettingsState>(DEFAULT_SETTINGS);
   const [status, setStatus] = useState("No changes saved");
-  const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase() ?? "";
-  const isAdmin = Boolean(adminEmail) && currentUser?.email.trim().toLowerCase() === adminEmail;
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordStatus, setPasswordStatus] = useState("No password update requested");
+
+  const authMeQuery = useQuery({
+    queryKey: ["auth-me", currentUserId],
+    queryFn: async () => {
+      const accessToken = await getAccessToken();
+      return apiRequest<{ authUser: { app_metadata?: { role?: unknown; roles?: unknown } | null } }>(
+        "/auth/me",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        }
+      );
+    },
+    enabled: Boolean(currentUserId)
+  });
+
+  const isAdmin = useMemo(
+    () => hasAdminRoleFromAuthUser(authMeQuery.data?.authUser ?? null),
+    [authMeQuery.data]
+  );
 
   useEffect(() => {
     const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -53,16 +79,39 @@ export default function SettingsPage() {
     setStatus("Settings saved");
   }
 
+  const passwordMutation = useMutation({
+    mutationFn: async () => {
+      const trimmedPassword = newPassword.trim();
+      const trimmedConfirmation = confirmPassword.trim();
+
+      if (!trimmedPassword) {
+        throw new Error("Enter a new password");
+      }
+
+      if (trimmedPassword !== trimmedConfirmation) {
+        throw new Error("Passwords do not match");
+      }
+
+      await changePassword(trimmedPassword);
+    },
+    onSuccess: () => {
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordStatus("Password updated");
+    },
+    onError: (error) => {
+      setPasswordStatus(`Password update failed: ${error.message}`);
+    }
+  });
+
   return (
     <RequireAuth>
       <div className="space-y-6">
-        <section className="rounded-xl border border-line bg-gradient-to-r from-panel via-panelAlt/70 to-panel px-5 py-4">
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal className="h-5 w-5 text-accent" />
-            <h1 className="text-lg font-semibold text-text">Settings</h1>
-          </div>
-          <p className="mt-1 text-sm text-muted">{status}</p>
-        </section>
+        <div className="flex items-center gap-2">
+          <SlidersHorizontal className="h-5 w-5 text-accent" />
+          <h1 className="text-lg font-semibold text-text">Settings</h1>
+        </div>
+        <p className="text-sm text-muted">{status}</p>
 
         <section className="grid gap-4 md:grid-cols-2">
           <SettingRow
@@ -102,6 +151,33 @@ export default function SettingsPage() {
           </button>
         </section>
 
+        <section className="rounded-xl border border-line bg-gradient-to-r from-panel to-panelAlt px-5 py-4">
+          <h2 className="text-sm font-semibold text-text">Change Password</h2>
+          <p className="mt-1 text-xs text-muted">{passwordStatus}</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <Input
+              label="New Password"
+              value={newPassword}
+              onChange={setNewPassword}
+              type="password"
+            />
+            <Input
+              label="Confirm Password"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              type="password"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => passwordMutation.mutate()}
+            disabled={passwordMutation.isPending}
+            className="mt-4 inline-flex items-center gap-2 rounded-md border border-line bg-panel px-4 py-2 text-sm text-text disabled:opacity-50"
+          >
+            {passwordMutation.isPending ? "Updating..." : "Update Password"}
+          </button>
+        </section>
+
         {isAdmin ? (
           <section className="rounded-xl border border-line bg-panel px-5 py-4">
             <h2 className="text-sm font-semibold text-text">Admin Account Controls</h2>
@@ -118,6 +194,30 @@ export default function SettingsPage() {
         ) : null}
       </div>
     </RequireAuth>
+  );
+}
+
+function Input({
+  label,
+  value,
+  onChange,
+  type = "text"
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: "text" | "password";
+}) {
+  return (
+    <div>
+      <label className="text-xs text-muted">{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 w-full rounded-md border border-line bg-panel px-3 py-2 text-sm text-text outline-none transition focus:border-accent"
+      />
+    </div>
   );
 }
 

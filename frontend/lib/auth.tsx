@@ -328,14 +328,25 @@ export function useAuth() {
 }
 
 async function syncSupabaseUser(accessToken: string) {
-  const response = await apiRequest<AuthSyncResponse>("/auth/sync", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const response = await apiRequest<AuthSyncResponse>("/auth/sync", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      });
+      return response.appUser;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
+      }
     }
-  });
+  }
 
-  return response.appUser;
+  throw lastError instanceof Error ? lastError : new Error("Failed to sync authenticated user");
 }
 
 async function provisionSupabaseUser(input: {

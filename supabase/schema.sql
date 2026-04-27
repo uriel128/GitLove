@@ -31,6 +31,10 @@ create table if not exists public.profiles (
 );
 
 alter table public.profiles add column if not exists profile_image_url text;
+alter table public.profiles add column if not exists gender text check (gender in ('MALE', 'FEMALE'));
+alter table public.profiles add column if not exists location_text text;
+alter table public.profiles add column if not exists latitude double precision;
+alter table public.profiles add column if not exists longitude double precision;
 
 create table if not exists public.challenges (
   id uuid primary key default gen_random_uuid(),

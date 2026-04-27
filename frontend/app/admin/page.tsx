@@ -1,21 +1,39 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Ban, KeyRound, Search, ShieldCheck, UserRoundCheck } from "lucide-react";
 import { RequireAuth } from "@/components/require-auth";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { hasAdminRoleFromAuthUser } from "@/lib/authz";
 import { AdminManagedUser } from "@/lib/types";
-
-const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase() ?? "";
 
 export default function AdminPage() {
   const queryClient = useQueryClient();
-  const { currentUser, getAccessToken } = useAuth();
+  const { currentUserId, getAccessToken } = useAuth();
+  const [query, setQuery] = useState("");
+  const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
   const [passwordDrafts, setPasswordDrafts] = useState<Record<string, string>>({});
-  const [actionStatus, setActionStatus] = useState<Record<string, string>>({});
-  const normalizedEmail = currentUser?.email.trim().toLowerCase() ?? "";
-  const isAdmin = Boolean(ADMIN_EMAIL) && normalizedEmail === ADMIN_EMAIL;
+  const [statusByUserId, setStatusByUserId] = useState<Record<string, string>>({});
+
+  const authMeQuery = useQuery({
+    queryKey: ["admin-auth-me", currentUserId],
+    queryFn: async () => {
+      const accessToken = await getAccessToken();
+      return apiRequest<{ authUser: { app_metadata?: { role?: unknown; roles?: unknown } | null } }>(
+        "/auth/me",
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}` }
+        }
+      );
+    },
+    enabled: Boolean(currentUserId)
+  });
+
+  const isAdmin = hasAdminRoleFromAuthUser(authMeQuery.data?.authUser ?? null);
 
   const usersQuery = useQuery({
     queryKey: ["admin-users"],
@@ -23,170 +41,247 @@ export default function AdminPage() {
       const accessToken = await getAccessToken();
       return apiRequest<AdminManagedUser[]>("/admin/users", {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        headers: { Authorization: `Bearer ${accessToken}` }
       });
     },
-    enabled: isAdmin
+    enabled: isAdmin,
+    staleTime: 20_000
   });
+
+  const filteredUsers = useMemo(() => {
+    const all = usersQuery.data ?? [];
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) {
+      return [...all].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
+
+    return all
+      .filter(
+        (user) =>
+          user.name.toLowerCase().includes(normalized) || user.email.toLowerCase().includes(normalized)
+      )
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [query, usersQuery.data]);
 
   const passwordMutation = useMutation({
     mutationFn: async ({ userId, password }: { userId: string; password: string }) => {
       const accessToken = await getAccessToken();
-      const normalizedPassword = password.trim();
-
-      if (normalizedPassword.length < 8) {
-        throw new Error("Temporary password must be at least 8 characters");
-      }
-
       await apiRequest<{ ok: true }>(`/admin/users/${userId}/password`, {
         method: "POST",
-        body: {
-          password: normalizedPassword
-        },
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+        body: { password: password.trim() },
+        headers: { Authorization: `Bearer ${accessToken}` }
       });
-
-      return normalizedPassword;
     },
     onSuccess: (_result, variables) => {
       setPasswordDrafts((prev) => ({ ...prev, [variables.userId]: "" }));
-      setActionStatus((prev) => ({
-        ...prev,
-        [variables.userId]: "Temporary password updated"
-      }));
+      setStatusByUserId((prev) => ({ ...prev, [variables.userId]: "Password updated" }));
       void queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },
     onError: (error, variables) => {
-      setActionStatus((prev) => ({
+      setStatusByUserId((prev) => ({
         ...prev,
-        [variables.userId]: `Update failed: ${error instanceof Error ? error.message : "Unknown error"}`
+        [variables.userId]: error instanceof Error ? error.message : "Password update failed"
       }));
     }
   });
 
-  const sortedUsers = useMemo(() => {
-    if (!usersQuery.data) {
-      return [];
+  const nameMutation = useMutation({
+    mutationFn: async ({ userId, name }: { userId: string; name: string }) => {
+      const accessToken = await getAccessToken();
+      await apiRequest<{ ok: true }>(`/admin/users/${userId}/name`, {
+        method: "POST",
+        body: { name: name.trim() },
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+    },
+    onSuccess: (_result, variables) => {
+      setStatusByUserId((prev) => ({ ...prev, [variables.userId]: "Name updated" }));
+      void queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    },
+    onError: (error, variables) => {
+      setStatusByUserId((prev) => ({
+        ...prev,
+        [variables.userId]: error instanceof Error ? error.message : "Name update failed"
+      }));
     }
+  });
 
-    return [...usersQuery.data].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
-  }, [usersQuery.data]);
+  const banMutation = useMutation({
+    mutationFn: async ({ userId, banned }: { userId: string; banned: boolean }) => {
+      const accessToken = await getAccessToken();
+      await apiRequest<{ ok: true }>(`/admin/users/${userId}/ban`, {
+        method: "POST",
+        body: { banned },
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      return banned;
+    },
+    onSuccess: (banned, variables) => {
+      setStatusByUserId((prev) => ({
+        ...prev,
+        [variables.userId]: banned ? "User banned" : "User unbanned"
+      }));
+      void queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    },
+    onError: (error, variables) => {
+      setStatusByUserId((prev) => ({
+        ...prev,
+        [variables.userId]: error instanceof Error ? error.message : "Ban update failed"
+      }));
+    }
+  });
 
   return (
     <RequireAuth>
       <div className="space-y-4">
-        <section className="rounded-md border border-line bg-panel p-4">
-          <h1 className="text-lg font-semibold">Admin / Accounts</h1>
-          <div className="mt-1 text-xs text-muted">
-            Signed in as {currentUser?.email ?? "unknown"}
+        <section className="rounded-2xl border border-line bg-gradient-to-r from-panel to-panelAlt p-4">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-accent" />
+            <h1 className="text-lg font-semibold text-text">Admin Account Controls</h1>
           </div>
+          <p className="mt-1 text-xs text-muted">
+            Search users, inspect profile readiness, and manage account controls.
+          </p>
         </section>
 
-        {!ADMIN_EMAIL ? (
-          <section className="rounded-md border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
-            `NEXT_PUBLIC_ADMIN_EMAIL` is not configured, so admin access is disabled.
+        {authMeQuery.isLoading ? (
+          <section className="rounded-xl border border-line bg-panel p-4 text-sm text-muted">
+            Checking admin access...
           </section>
         ) : null}
 
-        {ADMIN_EMAIL && !isAdmin ? (
-          <section className="rounded-md border border-rose-500/40 bg-rose-500/10 p-4 text-sm text-rose-100">
-            This account is not the configured admin user.
+        {!authMeQuery.isLoading && !isAdmin ? (
+          <section className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-sm text-rose-100">
+            This account does not have admin role in Supabase.
           </section>
         ) : null}
 
         {isAdmin ? (
-          <section className="rounded-md border border-line bg-panel p-4">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-sm font-semibold">Managed Accounts</h2>
-              <p className="text-xs text-muted">
-                Passwords are not readable. You can review accounts here and set a new temporary
-                password when you need to recover access.
-              </p>
-            </div>
+          <section className="rounded-2xl border border-line bg-panel p-4">
+            <label className="relative block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search by username or email"
+                className="w-full rounded-xl border border-line bg-panelAlt py-2.5 pl-9 pr-3 text-sm text-text outline-none focus:border-accent"
+              />
+            </label>
 
             {usersQuery.isLoading ? (
-              <div className="mt-3 text-sm text-muted">Loading accounts...</div>
+              <div className="mt-4 text-sm text-muted">Loading accounts...</div>
             ) : null}
 
             {usersQuery.isError ? (
-              <div className="mt-3 text-sm text-rose-300">
+              <div className="mt-4 text-sm text-rose-300">
                 Failed to load accounts: {usersQuery.error.message}
               </div>
             ) : null}
 
-            {sortedUsers.length > 0 ? (
-              <div className="mt-4 space-y-3">
-                {sortedUsers.map((user) => {
-                  const status = actionStatus[user.id];
-                  const passwordValue = passwordDrafts[user.id] ?? "";
-                  const isSaving = passwordMutation.isPending && passwordMutation.variables?.userId === user.id;
+            <div className="mt-4 space-y-3">
+              {filteredUsers.map((user) => {
+                const isBanned = Boolean(user.bannedUntil);
+                const status = statusByUserId[user.id] ?? "No pending admin action";
+                const passwordValue = passwordDrafts[user.id] ?? "";
+                const nameValue = nameDrafts[user.id] ?? user.name;
 
-                  return (
-                    <div
-                      key={user.id}
-                      className="rounded-md border border-line bg-panelAlt px-4 py-3 text-sm"
-                    >
-                      <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
-                        <div>
-                          <div className="font-medium text-text">{user.name}</div>
-                          <div className="text-xs text-muted">{user.email || "No email address"}</div>
-                          <div className="mt-1 text-xs text-muted">
-                            Created {formatDate(user.createdAt)} · Last sign-in{" "}
-                            {user.lastSignInAt ? formatDate(user.lastSignInAt) : "Never"}
-                          </div>
-                          <div className="mt-1 text-xs text-muted">
-                            Provider: {user.providers.length > 0 ? user.providers.join(", ") : "Unknown"} ·
-                            Profile: {user.hasProfile ? "Ready" : "Not created"} · Challenge:{" "}
-                            {user.challengeLevel ?? "Unset"}
-                          </div>
-                          <div className="mt-1 text-xs text-muted">
-                            Occupation: {user.occupation ?? "Not set"}
+                return (
+                  <div key={user.id} className="rounded-xl border border-line bg-panelAlt p-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          {user.profileImage ? (
+                            <img src={user.profileImage} alt={user.name} className="h-9 w-9 rounded-full object-cover" />
+                          ) : (
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/15 text-sm font-semibold text-accent">
+                              {user.name.slice(0, 1).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-text">{user.name}</p>
+                            <p className="truncate text-xs text-muted">{user.email}</p>
                           </div>
                         </div>
+                        <p className="mt-2 text-xs text-muted">
+                          Created {formatDate(user.createdAt)} · Last sign-in{" "}
+                          {user.lastSignInAt ? formatDate(user.lastSignInAt) : "Never"}
+                        </p>
+                        <p className="mt-1 text-xs text-muted">
+                          {user.hasProfile ? "Profile ready" : "Profile incomplete"} ·{" "}
+                          {user.gender ?? "No gender"} · {user.locationText ?? "No location"}
+                        </p>
+                        <p className="mt-1 text-xs text-muted">
+                          Challenge {user.challengeLevel ?? "Unset"} · {isBanned ? "BANNED" : "ACTIVE"}
+                        </p>
+                        <p className="mt-2 text-xs text-muted">{status}</p>
+                      </div>
 
-                        <div className="mt-3 w-full max-w-sm md:mt-0">
-                          <label className="mb-1 block text-xs font-medium text-muted">
-                            Temporary password
-                          </label>
+                      <div className="w-full max-w-md space-y-2">
+                        <div className="grid grid-cols-[1fr_auto] gap-2">
+                          <input
+                            value={nameValue}
+                            onChange={(event) =>
+                              setNameDrafts((prev) => ({ ...prev, [user.id]: event.target.value }))
+                            }
+                            placeholder="Change display name"
+                            className="rounded-lg border border-line bg-panel px-3 py-2 text-sm text-text outline-none focus:border-accent"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => nameMutation.mutate({ userId: user.id, name: nameValue })}
+                            className="rounded-lg border border-line bg-panel px-3 py-2 text-xs text-text transition hover:bg-panelAlt"
+                          >
+                            Save Name
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-[1fr_auto] gap-2">
                           <input
                             type="password"
                             value={passwordValue}
                             onChange={(event) =>
-                              setPasswordDrafts((prev) => ({
-                                ...prev,
-                                [user.id]: event.target.value
-                              }))
+                              setPasswordDrafts((prev) => ({ ...prev, [user.id]: event.target.value }))
                             }
-                            placeholder="At least 8 characters"
-                            className="w-full rounded-md border border-line bg-panel px-3 py-2 text-sm outline-none transition focus:border-accent"
+                            placeholder="Temporary password (8+ chars)"
+                            className="rounded-lg border border-line bg-panel px-3 py-2 text-sm text-text outline-none focus:border-accent"
                           />
                           <button
                             type="button"
-                            onClick={() =>
-                              passwordMutation.mutate({
-                                userId: user.id,
-                                password: passwordValue
-                              })
-                            }
-                            disabled={isSaving}
-                            className="mt-2 rounded-md border border-accent/60 bg-accent/10 px-3 py-2 text-xs font-medium text-accent disabled:opacity-50"
+                            onClick={() => passwordMutation.mutate({ userId: user.id, password: passwordValue })}
+                            className="inline-flex items-center gap-1 rounded-lg border border-line bg-panel px-3 py-2 text-xs text-text transition hover:bg-panelAlt"
                           >
-                            {isSaving ? "Updating..." : "Set Temporary Password"}
+                            <KeyRound className="h-3.5 w-3.5" />
+                            Password
                           </button>
-                          <div className="mt-2 text-xs text-muted">
-                            {status ?? "Reset the account by assigning a new temporary password."}
-                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => banMutation.mutate({ userId: user.id, banned: !isBanned })}
+                            className={`inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-xs transition ${
+                              isBanned
+                                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                                : "border-rose-500/40 bg-rose-500/10 text-rose-300"
+                            }`}
+                          >
+                            <Ban className="h-3.5 w-3.5" />
+                            {isBanned ? "Unban" : "Ban"}
+                          </button>
+                          <Link
+                            href={`/users/${user.id}`}
+                            className="inline-flex items-center gap-1 rounded-lg border border-line bg-panel px-3 py-2 text-xs text-text transition hover:bg-panelAlt"
+                          >
+                            <UserRoundCheck className="h-3.5 w-3.5" />
+                            View Profile
+                          </Link>
                         </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            ) : null}
+                  </div>
+                );
+              })}
+            </div>
           </section>
         ) : null}
       </div>
@@ -194,11 +289,13 @@ export default function AdminPage() {
   );
 }
 
-function formatDate(value: string) {
+function formatDate(value: string | null) {
+  if (!value) {
+    return "Unknown";
+  }
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
     return value;
   }
-
   return parsed.toLocaleString();
 }

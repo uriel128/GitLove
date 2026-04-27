@@ -21,6 +21,10 @@ const candidates = [
     favoriteOS: 'macOS',
     favoriteDataStructure: 'Hash Map',
     favoriteAlgorithm: 'Sliding Window',
+    gender: 'FEMALE',
+    locationText: 'Chicago, IL',
+    latitude: 41.8781,
+    longitude: -87.6298,
     challengeLevel: 'EASY',
     profileImageUrl: '/images/users/Katrina.png'
   },
@@ -38,6 +42,10 @@ const candidates = [
     favoriteOS: 'Linux',
     favoriteDataStructure: 'Heap',
     favoriteAlgorithm: 'Binary Search',
+    gender: 'FEMALE',
+    locationText: 'Austin, TX',
+    latitude: 30.2672,
+    longitude: -97.7431,
     challengeLevel: 'MEDIUM',
     profileImageUrl: '/images/users/Amara.png'
   },
@@ -55,6 +63,10 @@ const candidates = [
     favoriteOS: 'macOS',
     favoriteDataStructure: 'Trie',
     favoriteAlgorithm: 'Two Pointers',
+    gender: 'FEMALE',
+    locationText: 'Miami, FL',
+    latitude: 25.7617,
+    longitude: -80.1918,
     challengeLevel: 'EASY',
     profileImageUrl: '/images/users/Yuna.png'
   },
@@ -72,6 +84,10 @@ const candidates = [
     favoriteOS: 'Linux',
     favoriteDataStructure: 'Graph',
     favoriteAlgorithm: 'Dijkstra',
+    gender: 'FEMALE',
+    locationText: 'Seattle, WA',
+    latitude: 47.6062,
+    longitude: -122.3321,
     challengeLevel: 'MEDIUM',
     profileImageUrl: '/images/users/Julia.png'
   },
@@ -89,6 +105,10 @@ const candidates = [
     favoriteOS: 'Linux',
     favoriteDataStructure: 'Queue',
     favoriteAlgorithm: 'Dynamic Programming',
+    gender: 'FEMALE',
+    locationText: 'San Francisco, CA',
+    latitude: 37.7749,
+    longitude: -122.4194,
     challengeLevel: 'MEDIUM',
     profileImageUrl: '/images/users/Alana.jpg'
   },
@@ -106,23 +126,31 @@ const candidates = [
     favoriteOS: 'Linux',
     favoriteDataStructure: 'Set',
     favoriteAlgorithm: 'DFS',
+    gender: 'FEMALE',
+    locationText: 'Denver, CO',
+    latitude: 39.7392,
+    longitude: -104.9903,
     challengeLevel: 'HARD',
     profileImageUrl: '/images/users/Seraphina.jpg'
   },
   {
-    email: 'isabella@gitlove.com',
-    name: 'Isabella',
+    email: 'isabelle@gitlove.com',
+    name: 'Isabelle',
     occupation: 'Full-Stack Engineer',
     age: 25,
     hobbies: ['Yoga', 'Painting', 'Live Music'],
     editorChoice: 'WebStorm',
     languageChoice: 'TypeScript',
-    githubUsername: 'isabella-fs',
+    githubUsername: 'isabelle',
     vibeBadge: 'Vibe Coder',
     favoriteFramework: 'React',
     favoriteOS: 'macOS',
     favoriteDataStructure: 'Array',
     favoriteAlgorithm: 'Merge Sort',
+    gender: 'FEMALE',
+    locationText: 'New York, NY',
+    latitude: 40.7128,
+    longitude: -74.0060,
     challengeLevel: 'EASY',
     profileImageUrl: '/images/users/Isabella.jpg'
   },
@@ -140,6 +168,10 @@ const candidates = [
     favoriteOS: 'Linux',
     favoriteDataStructure: 'Matrix',
     favoriteAlgorithm: 'Backtracking',
+    gender: 'FEMALE',
+    locationText: 'San Jose, CA',
+    latitude: 37.3382,
+    longitude: -121.8863,
     challengeLevel: 'HARD',
     profileImageUrl: '/images/users/Mei.jpg'
   },
@@ -157,6 +189,10 @@ const candidates = [
     favoriteOS: 'Linux',
     favoriteDataStructure: 'Tree',
     favoriteAlgorithm: 'Greedy',
+    gender: 'FEMALE',
+    locationText: 'Portland, OR',
+    latitude: 45.5152,
+    longitude: -122.6784,
     challengeLevel: 'MEDIUM',
     profileImageUrl: '/images/users/Sloane.jpg'
   },
@@ -174,6 +210,10 @@ const candidates = [
     favoriteOS: 'macOS',
     favoriteDataStructure: 'Linked List',
     favoriteAlgorithm: 'BFS',
+    gender: 'FEMALE',
+    locationText: 'Los Angeles, CA',
+    latitude: 34.0522,
+    longitude: -118.2437,
     challengeLevel: 'EASY',
     profileImageUrl: '/images/users/Nadia.jpg'
   },
@@ -191,6 +231,10 @@ const candidates = [
     favoriteOS: 'Linux',
     favoriteDataStructure: 'Priority Queue',
     favoriteAlgorithm: 'Topological Sort',
+    gender: 'FEMALE',
+    locationText: 'Boston, MA',
+    latitude: 42.3601,
+    longitude: -71.0589,
     challengeLevel: 'HARD',
     profileImageUrl: '/images/users/Maria.jpg'
   }
@@ -202,6 +246,10 @@ async function main() {
     .select('profile_image_url')
     .limit(1);
   const hasProfileImageUrl = !imageColumnProbeError;
+  const { error: genderProbeError } = await supabase.from('profiles').select('gender').limit(1);
+  const hasGenderColumn = !genderProbeError;
+  const { error: locationProbeError } = await supabase.from('profiles').select('location_text, latitude, longitude').limit(1);
+  const hasLocationColumns = !locationProbeError;
 
   const { data: listData } = await supabase.auth.admin.listUsers();
   
@@ -241,6 +289,14 @@ async function main() {
 
       if (hasProfileImageUrl) {
         profilePayload.profile_image_url = c.profileImageUrl;
+      }
+      if (hasGenderColumn) {
+        profilePayload.gender = c.gender;
+      }
+      if (hasLocationColumns) {
+        profilePayload.location_text = c.locationText;
+        profilePayload.latitude = c.latitude;
+        profilePayload.longitude = c.longitude;
       }
 
       await supabase.from("profiles").upsert(profilePayload, { onConflict: "user_id" });

@@ -22,7 +22,7 @@ const women = [
   { email: "julia@gitlove.com", name: "Julia", stack: "Kotlin + Spring", focus: "backend APIs" },
   { email: "alana@gitlove.com", name: "Alana", stack: "Python + Airflow", focus: "data pipelines" },
   { email: "seraphina@gitlove.com", name: "Seraphina", stack: "Rust + Axum", focus: "security and correctness" },
-  { email: "isabella@gitlove.com", name: "Isabella", stack: "React + Node", focus: "full-stack product delivery" },
+  { email: "isabelle@gitlove.com", name: "Isabelle", stack: "React + Node", focus: "full-stack product delivery" },
   { email: "mei@gitlove.com", name: "Mei", stack: "PyTorch + FastAPI", focus: "ml serving" },
   { email: "sloane@gitlove.com", name: "Sloane", stack: "Terraform + Kubernetes", focus: "infra automation" },
   { email: "nadia@gitlove.com", name: "Nadia", stack: "Vue + TypeScript", focus: "design systems" },
@@ -158,9 +158,31 @@ async function ensureAppUser(authUser) {
     email.split("@")[0] ||
     "Developer";
 
+  const now = new Date().toISOString();
+
+  // First, reuse existing app user row by email (handles legacy rows whose id differs from auth id).
+  const { data: existingByEmail, error: existingByEmailError } = await supabase
+    .from("users")
+    .select("*")
+    .eq("email", email)
+    .maybeSingle();
+  if (existingByEmailError) throw existingByEmailError;
+
+  if (existingByEmail) {
+    const { data: updated, error: updateError } = await supabase
+      .from("users")
+      .update({ name, updated_at: now })
+      .eq("id", existingByEmail.id)
+      .select("*")
+      .single();
+    if (updateError) throw updateError;
+    return updated;
+  }
+
+  // If there is no email row yet, create/update by auth id.
   const { data, error } = await supabase
     .from("users")
-    .upsert({ id: authUser.id, email, name, updated_at: new Date().toISOString() }, { onConflict: "id" })
+    .upsert({ id: authUser.id, email, name, updated_at: now }, { onConflict: "id" })
     .select("*")
     .single();
   if (error) throw error;

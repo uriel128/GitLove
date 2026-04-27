@@ -8,8 +8,8 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { isProfileComplete } from "@/lib/profile-complete";
 import { uploadProfileImageFile } from "@/lib/profile-image-upload";
-import { User } from "@/lib/types";
-import { ImagePlus } from "lucide-react";
+import { ProfileGender, User } from "@/lib/types";
+import { ImagePlus, MapPinned } from "lucide-react";
 
 type FormState = {
   name: string;
@@ -26,6 +26,10 @@ type FormState = {
   favoriteOS: string;
   favoriteDataStructure: string;
   favoriteAlgorithm: string;
+  gender: ProfileGender;
+  locationText: string;
+  latitude: string;
+  longitude: string;
   challengeLevel: "EASY" | "MEDIUM" | "HARD";
 };
 
@@ -44,6 +48,10 @@ const EMPTY_FORM: FormState = {
   favoriteOS: "",
   favoriteDataStructure: "",
   favoriteAlgorithm: "",
+  gender: "MALE",
+  locationText: "",
+  latitude: "",
+  longitude: "",
   challengeLevel: "EASY"
 };
 
@@ -54,6 +62,7 @@ export default function ProfileOnboardingPage() {
   const [status, setStatus] = useState("");
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [imageStatus, setImageStatus] = useState("");
+  const [geoLoading, setGeoLoading] = useState(false);
 
   const userQuery = useQuery({
     queryKey: ["user", currentUserId],
@@ -87,6 +96,10 @@ export default function ProfileOnboardingPage() {
       favoriteOS: user.profile?.favoriteOS ?? "",
       favoriteDataStructure: user.profile?.favoriteDataStructure ?? "",
       favoriteAlgorithm: user.profile?.favoriteAlgorithm ?? "",
+      gender: user.profile?.gender ?? "MALE",
+      locationText: user.profile?.locationText ?? "",
+      latitude: typeof user.profile?.latitude === "number" ? String(user.profile.latitude) : "",
+      longitude: typeof user.profile?.longitude === "number" ? String(user.profile.longitude) : "",
       challengeLevel: user.profile?.challengeLevel ?? "EASY"
     });
   }, [router, userQuery.data]);
@@ -108,7 +121,11 @@ export default function ProfileOnboardingPage() {
       form.favoriteFramework.trim() &&
       form.favoriteOS.trim() &&
       form.favoriteDataStructure.trim() &&
-      form.favoriteAlgorithm.trim()
+      form.favoriteAlgorithm.trim() &&
+      (form.gender === "MALE" || form.gender === "FEMALE") &&
+      form.locationText.trim() &&
+      Number.isFinite(Number(form.latitude)) &&
+      Number.isFinite(Number(form.longitude))
     );
   }, [form]);
 
@@ -131,6 +148,10 @@ export default function ProfileOnboardingPage() {
         favoriteOS: form.favoriteOS.trim(),
         favoriteDataStructure: form.favoriteDataStructure.trim(),
         favoriteAlgorithm: form.favoriteAlgorithm.trim(),
+        gender: form.gender,
+        locationText: form.locationText.trim(),
+        latitude: Number(form.latitude),
+        longitude: Number(form.longitude),
         challengeLevel: form.challengeLevel
       });
     },
@@ -145,6 +166,30 @@ export default function ProfileOnboardingPage() {
       setStatus(message);
     }
   });
+
+  function useCurrentCoordinates() {
+    if (typeof window === "undefined" || !("geolocation" in navigator)) {
+      setStatus("Geolocation is not available in this browser.");
+      return;
+    }
+
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setForm((state) => ({
+          ...state,
+          latitude: position.coords.latitude.toFixed(6),
+          longitude: position.coords.longitude.toFixed(6)
+        }));
+        setGeoLoading(false);
+      },
+      (error) => {
+        setStatus(`Location access failed: ${error.message}`);
+        setGeoLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 }
+    );
+  }
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => uploadProfileImageFile(file),
@@ -202,6 +247,12 @@ export default function ProfileOnboardingPage() {
               value={form.occupation}
               onChange={(value) => setForm((s) => ({ ...s, occupation: value }))}
             />
+            <Select
+              label="Gender"
+              value={form.gender}
+              onChange={(value) => setForm((s) => ({ ...s, gender: value as ProfileGender }))}
+              options={["MALE", "FEMALE"]}
+            />
             <Input label="Age" type="number" value={form.age} onChange={(value) => setForm((s) => ({ ...s, age: value }))} />
             <Select
               label="Challenge Level"
@@ -209,6 +260,34 @@ export default function ProfileOnboardingPage() {
               onChange={(value) => setForm((s) => ({ ...s, challengeLevel: value as FormState["challengeLevel"] }))}
               options={["EASY", "MEDIUM", "HARD"]}
             />
+            <Input
+              label="Exact Location (City, State, Country)"
+              value={form.locationText}
+              onChange={(value) => setForm((s) => ({ ...s, locationText: value }))}
+            />
+            <div className="md:col-span-2 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+              <Input
+                label="Latitude"
+                value={form.latitude}
+                onChange={(value) => setForm((s) => ({ ...s, latitude: value }))}
+              />
+              <Input
+                label="Longitude"
+                value={form.longitude}
+                onChange={(value) => setForm((s) => ({ ...s, longitude: value }))}
+              />
+              <div className="self-end">
+                <button
+                  type="button"
+                  onClick={useCurrentCoordinates}
+                  disabled={geoLoading}
+                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-panelAlt px-3 text-sm text-text transition hover:bg-panel disabled:opacity-50"
+                >
+                  <MapPinned className="h-4 w-4" />
+                  {geoLoading ? "Locating..." : "Use Current"}
+                </button>
+              </div>
+            </div>
             <Input label="Hobby 1" value={form.hobbyOne} onChange={(value) => setForm((s) => ({ ...s, hobbyOne: value }))} />
             <Input label="Hobby 2" value={form.hobbyTwo} onChange={(value) => setForm((s) => ({ ...s, hobbyTwo: value }))} />
             <Input label="Hobby 3" value={form.hobbyThree} onChange={(value) => setForm((s) => ({ ...s, hobbyThree: value }))} />

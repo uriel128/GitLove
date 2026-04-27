@@ -19,6 +19,7 @@ export function TopNav() {
   
   const isLanding = pathname === "/";
   const isAuth = pathname === "/login";
+  const isAbout = pathname.startsWith("/about");
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -30,7 +31,7 @@ export function TopNav() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  if (isLanding || isAuth) {
+  if (isLanding || isAuth || isAbout) {
     return null;
   }
 

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  adminSetBanStatus,
+  adminUpdateUserName,
   adminSetTemporaryPassword,
   ApiError,
   cancelInterestRequest,
@@ -87,6 +89,45 @@ function parseChallengeLevel(value: unknown) {
     throw new ApiError(400, "challengeLevel must be EASY, MEDIUM, or HARD");
   }
 
+  return value;
+}
+
+function parseGender(value: unknown) {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === null) {
+    return null;
+  }
+  if (value !== "MALE" && value !== "FEMALE") {
+    throw new ApiError(400, "gender must be MALE or FEMALE");
+  }
+  return value;
+}
+
+function parseLatitude(value: unknown) {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === null) {
+    return null;
+  }
+  if (typeof value !== "number" || Number.isNaN(value) || value < -90 || value > 90) {
+    throw new ApiError(400, "latitude must be a number between -90 and 90");
+  }
+  return value;
+}
+
+function parseLongitude(value: unknown) {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === null) {
+    return null;
+  }
+  if (typeof value !== "number" || Number.isNaN(value) || value < -180 || value > 180) {
+    throw new ApiError(400, "longitude must be a number between -180 and 180");
+  }
   return value;
 }
 
@@ -297,6 +338,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json(await adminSetTemporaryPassword(route[2], password));
     }
 
+    if (route.length === 4 && route[0] === "admin" && route[1] === "users" && route[3] === "name") {
+      await requireAdminUser(request.headers.get("authorization"));
+      const body = await parseJson(request);
+      const name = requiredString(body?.name, "name");
+      return NextResponse.json(await adminUpdateUserName(route[2], name));
+    }
+
+    if (route.length === 4 && route[0] === "admin" && route[1] === "users" && route[3] === "ban") {
+      await requireAdminUser(request.headers.get("authorization"));
+      const body = await parseJson(request);
+      if (typeof body?.banned !== "boolean") {
+        throw new ApiError(400, "banned must be a boolean");
+      }
+      return NextResponse.json(await adminSetBanStatus(route[2], body.banned));
+    }
+
     return jsonError(404, "Endpoint not found");
   } catch (error) {
     return handleError(error);
@@ -323,6 +380,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         favoriteOS: optionalNullableString(body?.favoriteOS),
         favoriteDataStructure: optionalNullableString(body?.favoriteDataStructure),
         favoriteAlgorithm: optionalNullableString(body?.favoriteAlgorithm),
+        gender: parseGender(body?.gender),
+        locationText: optionalNullableString(body?.locationText),
+        latitude: parseLatitude(body?.latitude),
+        longitude: parseLongitude(body?.longitude),
         challengeLevel: parseChallengeLevel(body?.challengeLevel)
       });
 

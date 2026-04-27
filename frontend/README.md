@@ -18,7 +18,9 @@ Required environment variables in `frontend/.env.local`:
 
 Optional:
 - `NEXT_PUBLIC_API_URL` (defaults to `/api`)
-- `NEXT_PUBLIC_ADMIN_EMAIL`
+
+Admin access is role-based (Supabase Auth metadata), not env-based.  
+Set `app_metadata.role = "admin"` (or include `"admin"` in `app_metadata.roles`) for admin users.
 
 ## Supabase setup
 

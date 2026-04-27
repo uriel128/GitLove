@@ -1,9 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { Challenge } from "@/lib/types";
-import { CircleCheckBig, Play, ShieldAlert, TerminalSquare, X } from "lucide-react";
+import { ChevronDown, CircleCheckBig, Play, ShieldAlert, TerminalSquare, X } from "lucide-react";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
@@ -100,6 +100,8 @@ export function ChallengeModal({
   }, [challenge.starterCode]);
 
   const [language, setLanguage] = useState(languages.includes("typescript") ? "typescript" : languages[0]);
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
+  const languageMenuRef = useRef<HTMLDivElement | null>(null);
   
   const [codeMap, setCodeMap] = useState<Record<string, string>>({});
   
@@ -115,6 +117,20 @@ export function ChallengeModal({
     setCodeMap(initial);
     setLanguage(initial.typescript ? "typescript" : languages[0]);
   }, [challenge.starterCode, languages]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!languageMenuRef.current) {
+        return;
+      }
+      if (!languageMenuRef.current.contains(event.target as Node)) {
+        setLanguageMenuOpen(false);
+      }
+    }
+
+    window.addEventListener("mousedown", handleClickOutside);
+    return () => window.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const currentCode = codeMap[language] ?? "";
 
@@ -250,17 +266,41 @@ export function ChallengeModal({
             <div className="flex items-center justify-between border-b border-line/50 bg-[#191919] px-4 py-2.5">
               <div className="flex items-center gap-2">
                 <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Language</label>
-                <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
-                  className="rounded-md border border-line bg-black px-2 py-1 text-xs text-slate-200 outline-none focus:border-accent"
-                >
-                  {languages.map((l) => (
-                    <option key={l} value={l}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative" ref={languageMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setLanguageMenuOpen((value) => !value)}
+                    className="inline-flex min-w-[150px] items-center justify-between rounded-md border border-line bg-black px-2.5 py-1.5 text-xs font-medium capitalize text-slate-200 outline-none transition hover:border-accent/60 focus:border-accent"
+                  >
+                    <span>{language}</span>
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 text-slate-400 transition-transform ${
+                        languageMenuOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+                  {languageMenuOpen ? (
+                    <div className="absolute left-0 top-[calc(100%+6px)] z-20 max-h-56 min-w-[180px] overflow-y-auto rounded-md border border-line bg-[#101010] p-1 shadow-2xl">
+                      {languages.map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => {
+                            setLanguage(option);
+                            setLanguageMenuOpen(false);
+                          }}
+                          className={`flex w-full items-center rounded px-2 py-1.5 text-left text-xs capitalize transition ${
+                            language === option
+                              ? "bg-accent/20 text-accent"
+                              : "text-slate-200 hover:bg-white/10"
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               </div>
               <div className="text-xs font-mono text-slate-500">{submitted ? "READ-ONLY" : "EDITING"}</div>
             </div>

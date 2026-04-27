@@ -1,8 +1,8 @@
 import { User as SupabaseAuthUser } from "@supabase/supabase-js";
-import { randomUUID } from "crypto";
 import { getSupabaseAdminClient, getSupabaseAnonServerClient } from "@/lib/supabase/server";
 
 type ChallengeDifficulty = "EASY" | "MEDIUM" | "HARD";
+type ProfileGender = "MALE" | "FEMALE";
 type RequestStatus =
   | "PENDING_CHALLENGER"
   | "PENDING_RECIPIENT"
@@ -12,6 +12,8 @@ type RequestStatus =
 type MessageFormat = "TEXT" | "MARKDOWN" | "CODE";
 
 const FINAL_STATUSES = new Set<RequestStatus>(["MATCHED", "FAILED", "CANCELLED"]);
+let usersCache: { expiresAt: number; data: ReturnType<typeof mapUser>[] } | null = null;
+let ensuredProfileColumns = false;
 
 export class ApiError extends Error {
   status: number;
@@ -68,9 +70,238 @@ function mapProfile(row: any | null) {
     favoriteOS: row.favorite_os,
     favoriteDataStructure: row.favorite_data_structure,
     favoriteAlgorithm: row.favorite_algorithm,
+    gender: row.gender === "MALE" || row.gender === "FEMALE" ? (row.gender as ProfileGender) : null,
+    locationText: row.location_text ?? null,
+    latitude: typeof row.latitude === "number" ? row.latitude : null,
+    longitude: typeof row.longitude === "number" ? row.longitude : null,
     challengeLevel: (row.challenge_level ?? "EASY") as ChallengeDifficulty
   };
 }
+
+type WomenRosterSeed = {
+  email: string;
+  name: string;
+  profileImageUrl: string;
+  occupation: string;
+  age: number;
+  hobbies: string[];
+  editorChoice: string;
+  languageChoice: string;
+  githubUsername: string;
+  vibeBadge: string;
+  favoriteFramework: string;
+  favoriteOS: string;
+  favoriteDataStructure: string;
+  favoriteAlgorithm: string;
+  challengeLevel: ChallengeDifficulty;
+};
+
+const WOMEN_ROSTER_LOCATION: Record<string, { locationText: string; latitude: number; longitude: number }> = {
+  Alana: { locationText: "San Francisco, CA", latitude: 37.7749, longitude: -122.4194 },
+  Amara: { locationText: "Austin, TX", latitude: 30.2672, longitude: -97.7431 },
+  Isabelle: { locationText: "New York, NY", latitude: 40.7128, longitude: -74.006 },
+  Julia: { locationText: "Seattle, WA", latitude: 47.6062, longitude: -122.3321 },
+  Katrina: { locationText: "Chicago, IL", latitude: 41.8781, longitude: -87.6298 },
+  Maria: { locationText: "Boston, MA", latitude: 42.3601, longitude: -71.0589 },
+  Mei: { locationText: "San Jose, CA", latitude: 37.3382, longitude: -121.8863 },
+  Nadia: { locationText: "Los Angeles, CA", latitude: 34.0522, longitude: -118.2437 },
+  Seraphina: { locationText: "Denver, CO", latitude: 39.7392, longitude: -104.9903 },
+  Sloane: { locationText: "Portland, OR", latitude: 45.5152, longitude: -122.6784 },
+  Yuna: { locationText: "Miami, FL", latitude: 25.7617, longitude: -80.1918 }
+};
+
+const WOMEN_ROSTER_SEED: WomenRosterSeed[] = [
+  {
+    email: "alana@gitlove.com",
+    name: "Alana",
+    profileImageUrl: "/images/users/Alana.jpg",
+    occupation: "Data Engineer",
+    age: 28,
+    hobbies: ["Tennis", "Reading", "Cooking"],
+    editorChoice: "VS Code",
+    languageChoice: "Python",
+    githubUsername: "alana",
+    vibeBadge: "Real Developer",
+    favoriteFramework: "FastAPI",
+    favoriteOS: "Linux",
+    favoriteDataStructure: "Queue",
+    favoriteAlgorithm: "Dynamic Programming",
+    challengeLevel: "MEDIUM"
+  },
+  {
+    email: "amara@gitlove.com",
+    name: "Amara",
+    profileImageUrl: "/images/users/Amara.png",
+    occupation: "Platform Engineer",
+    age: 27,
+    hobbies: ["Running", "Meal Prep", "Board Games"],
+    editorChoice: "Neovim",
+    languageChoice: "Go",
+    githubUsername: "amara",
+    vibeBadge: "Real Developer",
+    favoriteFramework: "Gin",
+    favoriteOS: "Linux",
+    favoriteDataStructure: "Heap",
+    favoriteAlgorithm: "Binary Search",
+    challengeLevel: "MEDIUM"
+  },
+  {
+    email: "isabelle@gitlove.com",
+    name: "Isabelle",
+    profileImageUrl: "/images/users/Isabella.jpg",
+    occupation: "Full-Stack Engineer",
+    age: 25,
+    hobbies: ["Yoga", "Painting", "Live Music"],
+    editorChoice: "WebStorm",
+    languageChoice: "TypeScript",
+    githubUsername: "isabelle",
+    vibeBadge: "Vibe Coder",
+    favoriteFramework: "React",
+    favoriteOS: "macOS",
+    favoriteDataStructure: "Array",
+    favoriteAlgorithm: "Merge Sort",
+    challengeLevel: "EASY"
+  },
+  {
+    email: "julia@gitlove.com",
+    name: "Julia",
+    profileImageUrl: "/images/users/Julia.png",
+    occupation: "Backend Developer",
+    age: 29,
+    hobbies: ["Hiking", "Podcasts", "Cycling"],
+    editorChoice: "JetBrains IDEA",
+    languageChoice: "Kotlin",
+    githubUsername: "julia",
+    vibeBadge: "Real Developer",
+    favoriteFramework: "Spring Boot",
+    favoriteOS: "Linux",
+    favoriteDataStructure: "Graph",
+    favoriteAlgorithm: "Dijkstra",
+    challengeLevel: "MEDIUM"
+  },
+  {
+    email: "katrina@gitlove.com",
+    name: "Katrina",
+    profileImageUrl: "/images/users/Katrina.png",
+    occupation: "Frontend Engineer",
+    age: 25,
+    hobbies: ["Bouldering", "Latte Art", "Street Photography"],
+    editorChoice: "VS Code",
+    languageChoice: "TypeScript",
+    githubUsername: "katrina",
+    vibeBadge: "Real Developer",
+    favoriteFramework: "Next.js",
+    favoriteOS: "macOS",
+    favoriteDataStructure: "Hash Map",
+    favoriteAlgorithm: "Sliding Window",
+    challengeLevel: "EASY"
+  },
+  {
+    email: "maria@gitlove.com",
+    name: "Maria",
+    profileImageUrl: "/images/users/Maria.jpg",
+    occupation: "Site Reliability Engineer",
+    age: 29,
+    hobbies: ["CrossFit", "Travel", "Poetry"],
+    editorChoice: "Neovim",
+    languageChoice: "Go",
+    githubUsername: "maria",
+    vibeBadge: "Real Developer",
+    favoriteFramework: "Kubernetes",
+    favoriteOS: "Linux",
+    favoriteDataStructure: "Priority Queue",
+    favoriteAlgorithm: "Topological Sort",
+    challengeLevel: "HARD"
+  },
+  {
+    email: "mei@gitlove.com",
+    name: "Mei",
+    profileImageUrl: "/images/users/Mei.jpg",
+    occupation: "AI Engineer",
+    age: 27,
+    hobbies: ["Piano", "Chess", "Trail Running"],
+    editorChoice: "Zed",
+    languageChoice: "Python",
+    githubUsername: "mei",
+    vibeBadge: "Real Developer",
+    favoriteFramework: "PyTorch",
+    favoriteOS: "Linux",
+    favoriteDataStructure: "Matrix",
+    favoriteAlgorithm: "Backtracking",
+    challengeLevel: "HARD"
+  },
+  {
+    email: "nadia@gitlove.com",
+    name: "Nadia",
+    profileImageUrl: "/images/users/Nadia.jpg",
+    occupation: "Frontend Architect",
+    age: 26,
+    hobbies: ["Dancing", "Coffee Roasting", "Journaling"],
+    editorChoice: "VS Code",
+    languageChoice: "TypeScript",
+    githubUsername: "nadia",
+    vibeBadge: "Vibe Coder",
+    favoriteFramework: "Vue",
+    favoriteOS: "macOS",
+    favoriteDataStructure: "Linked List",
+    favoriteAlgorithm: "BFS",
+    challengeLevel: "EASY"
+  },
+  {
+    email: "seraphina@gitlove.com",
+    name: "Seraphina",
+    profileImageUrl: "/images/users/Seraphina.jpg",
+    occupation: "Security Engineer",
+    age: 26,
+    hobbies: ["Boxing", "Sci-Fi", "Vinyl Records"],
+    editorChoice: "Cursor",
+    languageChoice: "Rust",
+    githubUsername: "seraphina",
+    vibeBadge: "Real Developer",
+    favoriteFramework: "Axum",
+    favoriteOS: "Linux",
+    favoriteDataStructure: "Set",
+    favoriteAlgorithm: "DFS",
+    challengeLevel: "HARD"
+  },
+  {
+    email: "sloane@gitlove.com",
+    name: "Sloane",
+    profileImageUrl: "/images/users/Sloane.jpg",
+    occupation: "Cloud Engineer",
+    age: 30,
+    hobbies: ["Camping", "Skiing", "Game Nights"],
+    editorChoice: "VS Code",
+    languageChoice: "Go",
+    githubUsername: "sloane",
+    vibeBadge: "Real Developer",
+    favoriteFramework: "Terraform",
+    favoriteOS: "Linux",
+    favoriteDataStructure: "Tree",
+    favoriteAlgorithm: "Greedy",
+    challengeLevel: "MEDIUM"
+  },
+  {
+    email: "yuna@gitlove.com",
+    name: "Yuna",
+    profileImageUrl: "/images/users/Yuna.png",
+    occupation: "Mobile Engineer",
+    age: 24,
+    hobbies: ["Pilates", "Sushi Nights", "Travel"],
+    editorChoice: "Xcode",
+    languageChoice: "Swift",
+    githubUsername: "yuna",
+    vibeBadge: "Vibe Coder",
+    favoriteFramework: "SwiftUI",
+    favoriteOS: "macOS",
+    favoriteDataStructure: "Trie",
+    favoriteAlgorithm: "Two Pointers",
+    challengeLevel: "EASY"
+  }
+];
+
+let lastWomenRosterSyncAt = 0;
+let womenRosterSyncPromise: Promise<void> | null = null;
 
 const FALLBACK_CHALLENGES: Record<ChallengeDifficulty, Array<{
   slug: string;
@@ -230,6 +461,40 @@ function mapChatMessage(messageRow: any, senderRow: any | null) {
       name: senderRow?.name ?? "Unknown"
     }
   };
+}
+
+function invalidateUsersCache() {
+  usersCache = null;
+}
+
+async function ensureMatchingProfileColumns() {
+  if (ensuredProfileColumns) {
+    return true;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { error } = await supabase.rpc("exec_sql", {
+    sql: `
+      alter table public.profiles add column if not exists gender text check (gender in ('MALE', 'FEMALE'));
+      alter table public.profiles add column if not exists location_text text;
+      alter table public.profiles add column if not exists latitude double precision;
+      alter table public.profiles add column if not exists longitude double precision;
+    `
+  });
+
+  if (!error) {
+    ensuredProfileColumns = true;
+    return true;
+  }
+
+  // If RPC is unavailable in this environment, continue without hard-failing here.
+  const { error: probeError } = await supabase.from("profiles").select("gender, location_text, latitude, longitude").limit(1);
+  if (!probeError) {
+    ensuredProfileColumns = true;
+    return true;
+  }
+
+  return false;
 }
 
 async function getUserRowsByIds(userIds: string[]) {
@@ -502,24 +767,37 @@ async function upsertAppUserRecord(userId: string, email: string, name: string) 
     throw new ApiError(500, profileError.message);
   }
 
+  invalidateUsersCache();
   return mapUser(userRow, profileRow ?? null);
 }
 
-function getConfiguredAdminEmail() {
-  return process.env.NEXT_PUBLIC_ADMIN_EMAIL?.trim().toLowerCase() ?? "";
+function normalizeRole(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function hasAdminRole(authUser: SupabaseAuthUser) {
+  const role = normalizeRole(authUser.app_metadata?.role);
+  if (role === "admin") {
+    return true;
+  }
+
+  const roles = authUser.app_metadata?.roles;
+  if (!Array.isArray(roles)) {
+    return false;
+  }
+
+  return roles.some((candidate) => normalizeRole(candidate) === "admin");
 }
 
 export async function requireAdminUser(authHeader: string | null) {
   const authUser = await getAuthUserFromAuthorizationHeader(authHeader);
-  const configuredAdminEmail = getConfiguredAdminEmail();
-  const email = authUser.email?.trim().toLowerCase() ?? "";
-
-  if (!configuredAdminEmail) {
-    throw new ApiError(503, "Admin email is not configured");
-  }
-
-  if (!email || email !== configuredAdminEmail) {
-    throw new ApiError(403, "Admin access is required");
+  if (!hasAdminRole(authUser)) {
+    throw new ApiError(403, "Admin role is required");
   }
 
   return authUser;
@@ -577,9 +855,13 @@ export async function listAdminUsers() {
         name: appUser?.name ?? metadataName?.trim() ?? email.split("@")[0] ?? "Developer",
         createdAt: authUser.created_at,
         lastSignInAt: authUser.last_sign_in_at ?? null,
+        bannedUntil: authUser.banned_until ?? null,
         providers,
         hasProfile: Boolean(appUser?.profile),
+        profileImage: appUser?.profile?.profileImage ?? null,
         occupation: appUser?.profile?.occupation ?? null,
+        gender: appUser?.profile?.gender ?? null,
+        locationText: appUser?.profile?.locationText ?? null,
         challengeLevel: appUser?.profile?.challengeLevel ?? null
       };
     })
@@ -614,6 +896,64 @@ export async function adminSetTemporaryPassword(userId: string, password: string
   return {
     ok: true
   };
+}
+
+export async function adminUpdateUserName(userId: string, name: string) {
+  const supabase = getSupabaseAdminClient();
+  const trimmedName = name.trim();
+
+  if (!trimmedName) {
+    throw new ApiError(400, "name is required");
+  }
+
+  const { data: existingUser, error: existingUserError } = await supabase.auth.admin.getUserById(userId);
+  if (existingUserError) {
+    throw new ApiError(500, existingUserError.message);
+  }
+  if (!existingUser.user) {
+    throw new ApiError(404, "Auth user not found");
+  }
+
+  const { error: updateAppUserError } = await supabase
+    .from("users")
+    .update({ name: trimmedName, updated_at: new Date().toISOString() })
+    .eq("id", userId);
+
+  if (updateAppUserError) {
+    throw new ApiError(500, updateAppUserError.message);
+  }
+
+  await supabase.auth.admin.updateUserById(userId, {
+    user_metadata: {
+      ...(existingUser.user.user_metadata ?? {}),
+      name: trimmedName
+    }
+  });
+
+  invalidateUsersCache();
+  return {
+    ok: true
+  };
+}
+
+export async function adminSetBanStatus(userId: string, banned: boolean) {
+  const supabase = getSupabaseAdminClient();
+  const { data: existingUser, error: existingUserError } = await supabase.auth.admin.getUserById(userId);
+  if (existingUserError) {
+    throw new ApiError(500, existingUserError.message);
+  }
+  if (!existingUser.user) {
+    throw new ApiError(404, "Auth user not found");
+  }
+
+  const { error } = await supabase.auth.admin.updateUserById(userId, {
+    ban_duration: banned ? "876000h" : "none"
+  });
+  if (error) {
+    throw new ApiError(500, error.message);
+  }
+
+  return { ok: true };
 }
 
 const PROFILE_IMAGE_BUCKET = "profile-images";
@@ -699,6 +1039,134 @@ async function resolveProfileImageColumn() {
   );
 }
 
+async function syncWomenRosterUsers() {
+  const supabase = getSupabaseAdminClient();
+  const { data: authUsersPage, error: authUsersError } = await supabase.auth.admin.listUsers({
+    page: 1,
+    perPage: 1000
+  });
+
+  if (authUsersError) {
+    throw new ApiError(500, authUsersError.message);
+  }
+
+  const authByEmail = new Map(
+    (authUsersPage.users ?? [])
+      .map((authUser) => ({
+        email: authUser.email?.trim().toLowerCase() ?? "",
+        user: authUser
+      }))
+      .filter((item) => item.email)
+      .map((item) => [item.email, item.user])
+  );
+
+  const imageColumn = await resolveProfileImageColumn();
+
+  for (const woman of WOMEN_ROSTER_SEED) {
+    let authUser = authByEmail.get(woman.email);
+
+    if (!authUser) {
+      const { data: createdAuthUser, error: createAuthUserError } = await supabase.auth.admin.createUser({
+        email: woman.email,
+        password: "password",
+        email_confirm: true,
+        user_metadata: { name: woman.name }
+      });
+
+      if (createAuthUserError || !createdAuthUser.user) {
+        throw new ApiError(500, createAuthUserError?.message ?? "Failed to create roster auth user");
+      }
+
+      authUser = createdAuthUser.user;
+      authByEmail.set(woman.email, authUser);
+    } else {
+      const { data: updatedAuthUser, error: updateAuthUserError } = await supabase.auth.admin.updateUserById(
+        authUser.id,
+        {
+          password: "password",
+          email_confirm: true,
+          user_metadata: {
+            ...(authUser.user_metadata ?? {}),
+            name: woman.name
+          }
+        }
+      );
+
+      if (!updateAuthUserError && updatedAuthUser.user) {
+        authUser = updatedAuthUser.user;
+      }
+    }
+
+    const userId = authUser.id;
+    const now = new Date().toISOString();
+    const fallbackLocation = WOMEN_ROSTER_LOCATION[woman.name] ?? WOMEN_ROSTER_LOCATION.Isabelle;
+
+    const { error: upsertUserError } = await supabase.from("users").upsert(
+      {
+        id: userId,
+        email: woman.email,
+        name: woman.name,
+        updated_at: now
+      },
+      { onConflict: "id" }
+    );
+    if (upsertUserError) {
+      throw new ApiError(500, upsertUserError.message);
+    }
+
+    const profilePayload: Record<string, unknown> = {
+      user_id: userId,
+      occupation: woman.occupation,
+      age: woman.age,
+      hobbies: woman.hobbies,
+      editor_choice: woman.editorChoice,
+      language_choice: woman.languageChoice,
+      github_username: woman.githubUsername,
+      vibe_badge: woman.vibeBadge,
+      favorite_framework: woman.favoriteFramework,
+      favorite_os: woman.favoriteOS,
+      favorite_data_structure: woman.favoriteDataStructure,
+      favorite_algorithm: woman.favoriteAlgorithm,
+      gender: "FEMALE",
+      location_text: fallbackLocation.locationText,
+      latitude: fallbackLocation.latitude,
+      longitude: fallbackLocation.longitude,
+      challenge_level: woman.challengeLevel,
+      updated_at: now
+    };
+    profilePayload[imageColumn] = woman.profileImageUrl;
+
+    const { error: upsertProfileError } = await supabase
+      .from("profiles")
+      .upsert(profilePayload, { onConflict: "user_id" });
+    if (upsertProfileError) {
+      throw new ApiError(500, upsertProfileError.message);
+    }
+  }
+
+  invalidateUsersCache();
+}
+
+async function ensureWomenRosterUsers() {
+  const now = Date.now();
+  if (now - lastWomenRosterSyncAt < 120000) {
+    return;
+  }
+
+  if (womenRosterSyncPromise) {
+    return womenRosterSyncPromise;
+  }
+
+  womenRosterSyncPromise = (async () => {
+    await syncWomenRosterUsers();
+    lastWomenRosterSyncAt = Date.now();
+  })().finally(() => {
+    womenRosterSyncPromise = null;
+  });
+
+  return womenRosterSyncPromise;
+}
+
 export async function uploadProfileImage(input: {
   userId: string;
   fileName: string;
@@ -762,6 +1230,7 @@ export async function uploadProfileImage(input: {
     throw new ApiError(500, profileError.message);
   }
 
+  invalidateUsersCache();
   return getUserById(input.userId);
 }
 
@@ -779,6 +1248,16 @@ export async function getHealth() {
 }
 
 export async function listUsers() {
+  const now = Date.now();
+  if (usersCache && usersCache.expiresAt > now) {
+    return usersCache.data;
+  }
+
+  void ensureWomenRosterUsers().catch((error) => {
+    console.warn("Women roster sync skipped:", error);
+  });
+  await ensureMatchingProfileColumns();
+
   const supabase = getSupabaseAdminClient();
   const { data: userRows, error: usersError } = await supabase
     .from("users")
@@ -793,7 +1272,12 @@ export async function listUsers() {
   const profiles = await getProfileRowsByUserIds(users.map((user) => user.id));
   const profileByUserId = new Map(profiles.map((profile) => [profile.user_id, profile]));
 
-  return users.map((user) => mapUser(user, profileByUserId.get(user.id) ?? null));
+  const mapped = users.map((user) => mapUser(user, profileByUserId.get(user.id) ?? null));
+  usersCache = {
+    data: mapped,
+    expiresAt: Date.now() + 30_000
+  };
+  return mapped;
 }
 
 export async function getUserById(userId: string) {
@@ -840,10 +1324,26 @@ export async function updateUserProfile(
     favoriteOS?: string | null;
     favoriteDataStructure?: string | null;
     favoriteAlgorithm?: string | null;
+    gender?: ProfileGender | null;
+    locationText?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
     challengeLevel?: ChallengeDifficulty;
   }
 ) {
   const supabase = getSupabaseAdminClient();
+  const hasMatchingFields =
+    input.gender !== undefined ||
+    input.locationText !== undefined ||
+    input.latitude !== undefined ||
+    input.longitude !== undefined;
+  const hasColumns = await ensureMatchingProfileColumns();
+  if (hasMatchingFields && !hasColumns) {
+    throw new ApiError(
+      500,
+      "Missing profile matching columns. Run supabase/schema.sql to add gender/location fields."
+    );
+  }
 
   const { data: existingUser, error: existingUserError } = await supabase
     .from("users")
@@ -913,6 +1413,18 @@ export async function updateUserProfile(
   if (input.favoriteAlgorithm !== undefined) {
     profilePayload.favorite_algorithm = input.favoriteAlgorithm;
   }
+  if (input.gender !== undefined) {
+    profilePayload.gender = input.gender;
+  }
+  if (input.locationText !== undefined) {
+    profilePayload.location_text = input.locationText;
+  }
+  if (input.latitude !== undefined) {
+    profilePayload.latitude = input.latitude;
+  }
+  if (input.longitude !== undefined) {
+    profilePayload.longitude = input.longitude;
+  }
   if (input.challengeLevel !== undefined) {
     profilePayload.challenge_level = input.challengeLevel;
   }
@@ -925,6 +1437,7 @@ export async function updateUserProfile(
     throw new ApiError(500, profileError.message);
   }
 
+  invalidateUsersCache();
   return getUserById(userId);
 }
 
@@ -1371,6 +1884,8 @@ export async function getMatchesForUser(userId: string) {
     [...new Set(matches.flatMap((match) => [match.user_a_id, match.user_b_id]))]
   );
   const userById = new Map(userRows.map((user) => [user.id, user]));
+  const profileRows = await getProfileRowsByUserIds([...new Set(userRows.map((user) => user.id))]);
+  const profileByUserId = new Map(profileRows.map((profile) => [profile.user_id, mapProfile(profile)]));
 
   const { data: roomRows, error: roomError } = await supabase
     .from("chat_rooms")
@@ -1394,11 +1909,13 @@ export async function getMatchesForUser(userId: string) {
       id: match.id,
       userA: {
         id: match.user_a_id,
-        name: userA?.name ?? "Unknown"
+        name: userA?.name ?? "Unknown",
+        profileImage: profileByUserId.get(match.user_a_id)?.profileImage ?? null
       },
       userB: {
         id: match.user_b_id,
-        name: userB?.name ?? "Unknown"
+        name: userB?.name ?? "Unknown",
+        profileImage: profileByUserId.get(match.user_b_id)?.profileImage ?? null
       },
       room: roomByMatchId.has(match.id)
         ? {
@@ -1520,7 +2037,144 @@ export async function createChatMessage(
   return mapChatMessage(messageRow, senderRows[0] ?? null);
 }
 
+function buildDemoConversation(
+  person: WomenRosterSeed,
+  currentUserName: string
+) {
+  const focusByName: Record<string, string> = {
+    Alana: "data pipeline retries and backfills",
+    Amara: "platform reliability and incident reduction",
+    Isabelle: "frontend polish and interaction quality",
+    Julia: "API design and transactional boundaries",
+    Katrina: "UI smoothness and perceived performance",
+    Maria: "observability and release safety",
+    Mei: "model-serving latency and feature quality",
+    Nadia: "design-system consistency and UX details",
+    Seraphina: "security hardening and auth flows",
+    Sloane: "infra automation and rollout safety",
+    Yuna: "mobile architecture and offline sync"
+  };
+
+  const focus = focusByName[person.name] ?? "product quality";
+  const snippetByLanguage: Record<string, string> = {
+    TypeScript: "const byId = new Map(rows.map((row) => [row.id, row]));\nreturn ids.map((id) => byId.get(id)).filter(Boolean);",
+    Go: "if err := tx.WithContext(ctx).Create(&req).Error; err != nil {\n  return err\n}\nreturn tx.Commit().Error",
+    Swift: "func retry<T>(_ attempts: Int, _ work: () async throws -> T) async throws -> T {\n  var last: Error?\n  for _ in 0..<attempts { do { return try await work() } catch { last = error } }\n  throw last!\n}",
+    Kotlin: "transactionTemplate.execute {\n  requestRepo.save(entity)\n  auditRepo.save(audit)\n}",
+    Python: "for attempt in range(max_retries):\n    try:\n        return run_job()\n    except Exception:\n        time.sleep(2 ** attempt)",
+    Rust: "match cache.get(&key) {\n    Some(v) => Ok(v.clone()),\n    None => {\n        let fresh = load_from_db().await?;\n        cache.insert(key, fresh.clone());\n        Ok(fresh)\n    }\n}"
+  };
+
+  const codeSnippet = snippetByLanguage[person.languageChoice] ??
+    "const room = await db.from('chat_rooms').upsert(payload, { onConflict: 'match_id' });";
+
+  return [
+    {
+      sender: "admin",
+      format: "MARKDOWN" as const,
+      content: `Hey ${person.name}, I liked how you described ${focus}. Want to pair on the GitLove demo polish tonight?`
+    },
+    {
+      sender: "target",
+      format: "MARKDOWN" as const,
+      content: `Yes. Also, your message style is unexpectedly calm for launch week, ${currentUserName}. I like it.`
+    },
+    {
+      sender: "admin",
+      format: "MARKDOWN" as const,
+      content: `I can stay calm if the architecture is clean. If not, I panic in private and fix it fast.`
+    },
+    {
+      sender: "target",
+      format: "MARKDOWN" as const,
+      content: `Same. Let's make the app feel alive and still technically solid.`
+    },
+    {
+      sender: "admin",
+      format: "MARKDOWN" as const,
+      content: `For ${focus}, I’m planning stricter state transitions plus clearer telemetry labels.`
+    },
+    {
+      sender: "target",
+      format: "CODE" as const,
+      content: codeSnippet
+    },
+    {
+      sender: "admin",
+      format: "MARKDOWN" as const,
+      content: `This is clean. Also not going to lie, discussing ${person.favoriteAlgorithm} with you is a green flag.`
+    },
+    {
+      sender: "target",
+      format: "MARKDOWN" as const,
+      content: `Then I should mention I still benchmark solutions before I trust intuition.`
+    },
+    {
+      sender: "admin",
+      format: "MARKDOWN" as const,
+      content: `Perfect. I’m doing the same for chat latency and match transitions before we present.`
+    },
+    {
+      sender: "target",
+      format: "MARKDOWN" as const,
+      content: `Let's ship this and then celebrate with coffee. You can choose the place, I’ll choose the PR review order.`
+    },
+    {
+      sender: "admin",
+      format: "MARKDOWN" as const,
+      content: `Deal. Also I want your take on whether ${person.favoriteFramework} is still the right long-term fit for this flow.`
+    },
+    {
+      sender: "target",
+      format: "MARKDOWN" as const,
+      content: `For this scope, yes. Long-term we modularize and keep the domain layer boring.`
+    },
+    {
+      sender: "admin",
+      format: "MARKDOWN" as const,
+      content: `Boring domain layer is attractive. Predictable systems and thoughtful people win every time.`
+    },
+    {
+      sender: "target",
+      format: "MARKDOWN" as const,
+      content: `Agreed. Push your latest branch when ready, I’ll review with context notes not just nitpicks.`
+    },
+    {
+      sender: "admin",
+      format: "MARKDOWN" as const,
+      content: `Sent. After this demo, we should do a no-laptop date and only talk about non-technical things for one hour.`
+    },
+    {
+      sender: "target",
+      format: "MARKDOWN" as const,
+      content: `One hour might be hard, but I'll try. No promises if someone mentions distributed systems.`
+    },
+    {
+      sender: "admin",
+      format: "MARKDOWN" as const,
+      content: `Fair. Final checklist: seeded chats, swipe flow smooth, LC gate stable, and profile data complete.`
+    },
+    {
+      sender: "target",
+      format: "MARKDOWN" as const,
+      content: `All of that plus better micro-interactions. Smooth details are what make this feel premium.`
+    },
+    {
+      sender: "admin",
+      format: "MARKDOWN" as const,
+      content: `Then let's close this cleanly. Thanks for being sharp and kind under pressure.`
+    },
+    {
+      sender: "target",
+      format: "MARKDOWN" as const,
+      content: `Same to you. See you in the final rehearsal.`
+    }
+  ];
+}
+
 export async function seedDemoChatsForUser(userId: string) {
+  await ensureWomenRosterUsers();
+
   const supabase = getSupabaseAdminClient();
 
   const user = await getUserById(userId);
@@ -1528,72 +2182,13 @@ export async function seedDemoChatsForUser(userId: string) {
     throw new ApiError(404, "User not found");
   }
 
-  const roster = [
-    { email: "katrina@gitlove.com", name: "Katrina", occupation: "Frontend Engineer", language: "TypeScript", framework: "Next.js" },
-    { email: "amara@gitlove.com", name: "Amara", occupation: "Platform Engineer", language: "Go", framework: "Gin" },
-    { email: "yuna@gitlove.com", name: "Yuna", occupation: "Mobile Engineer", language: "Swift", framework: "SwiftUI" },
-    { email: "julia@gitlove.com", name: "Julia", occupation: "Backend Developer", language: "Kotlin", framework: "Spring Boot" },
-    { email: "alana@gitlove.com", name: "Alana", occupation: "Data Engineer", language: "Python", framework: "FastAPI" },
-    { email: "seraphina@gitlove.com", name: "Seraphina", occupation: "Security Engineer", language: "Rust", framework: "Axum" },
-    { email: "isabella@gitlove.com", name: "Isabella", occupation: "Full-Stack Engineer", language: "TypeScript", framework: "React" },
-    { email: "mei@gitlove.com", name: "Mei", occupation: "AI Engineer", language: "Python", framework: "PyTorch" },
-    { email: "sloane@gitlove.com", name: "Sloane", occupation: "Cloud Engineer", language: "Go", framework: "Terraform" },
-    { email: "nadia@gitlove.com", name: "Nadia", occupation: "Frontend Architect", language: "TypeScript", framework: "Vue" },
-    { email: "maria@gitlove.com", name: "Maria", occupation: "Site Reliability Engineer", language: "Go", framework: "Kubernetes" }
-  ];
-
-  const candidateEmails = roster.map((person) => person.email);
-  const { data: existingWomenRows, error: womenError } = await supabase
+  const candidateEmails = WOMEN_ROSTER_SEED.map((person) => person.email);
+  const { data: womenRows, error: womenError } = await supabase
     .from("users")
     .select("id, email, name")
     .in("email", candidateEmails);
   if (womenError) {
     throw new ApiError(500, womenError.message);
-  }
-
-  const existingByEmail = new Map((existingWomenRows ?? []).map((row) => [row.email, row]));
-  const missingWomen = roster.filter((person) => !existingByEmail.has(person.email));
-
-  for (const person of missingWomen) {
-    const createdUserId = randomUUID();
-    const { error: insertUserError } = await supabase.from("users").insert({
-      id: createdUserId,
-      email: person.email,
-      name: person.name
-    });
-    if (insertUserError) {
-      throw new ApiError(500, insertUserError.message);
-    }
-
-    const { error: insertProfileError } = await supabase.from("profiles").upsert(
-      {
-        user_id: createdUserId,
-        occupation: person.occupation,
-        age: 26,
-        hobbies: ["Coding", "Coffee", "Travel"],
-        editor_choice: "VS Code",
-        language_choice: person.language,
-        github_username: person.name.toLowerCase(),
-        vibe_badge: "Real Developer",
-        favorite_framework: person.framework,
-        favorite_os: "macOS",
-        favorite_data_structure: "Hash Map",
-        favorite_algorithm: "Two Pointers",
-        challenge_level: "EASY"
-      },
-      { onConflict: "user_id" }
-    );
-    if (insertProfileError) {
-      throw new ApiError(500, insertProfileError.message);
-    }
-  }
-
-  const { data: womenRows, error: refreshedWomenError } = await supabase
-    .from("users")
-    .select("id, email, name")
-    .in("email", candidateEmails);
-  if (refreshedWomenError) {
-    throw new ApiError(500, refreshedWomenError.message);
   }
 
   const women = (womenRows ?? []).filter((row) => row.id !== userId);
@@ -1635,6 +2230,10 @@ export async function seedDemoChatsForUser(userId: string) {
   let insertedMessages = 0;
 
   for (const woman of women) {
+    const rosterProfile = WOMEN_ROSTER_SEED.find(
+      (entry) => entry.email === woman.email.toLowerCase()
+    );
+
     const { data: existingRequest, error: existingRequestError } = await supabase
       .from("interest_requests")
       .select("id")
@@ -1725,33 +2324,40 @@ export async function seedDemoChatsForUser(userId: string) {
     }
 
     const existingCount = messageCount ?? 0;
-    if (existingCount >= 20) {
+    if (existingCount >= 36) {
       continue;
     }
 
-    const template = [
-      `Hey ${woman.name}, quick check: I’m cleaning up our API boundaries before demo.`,
-      "Nice. I’d split transport DTOs from domain models to keep validation predictable.",
-      "Exactly. Also adding idempotency around match + room creation so duplicate actions are safe.",
-      "Good call. I usually protect with unique constraints and treat retries as normal flow.",
-      "I pushed chat seeding too so we can show realistic active DMs during presentation.",
-      "Perfect. Add a couple of code snippets and mention CI stability to make it feel authentic.",
-      "Agreed. I’m also tightening challenge acceptance so correct LC submissions don’t get false negatives.",
-      "That was the right fix. Nothing breaks trust faster than correct code being rejected."
-    ];
+    const thread = buildDemoConversation(
+      rosterProfile ?? {
+        email: woman.email,
+        name: woman.name,
+        profileImageUrl: "/images/users/Profile.png",
+        occupation: "Software Engineer",
+        age: 26,
+        hobbies: ["Coding", "Coffee", "Travel"],
+        editorChoice: "VS Code",
+        languageChoice: "TypeScript",
+        githubUsername: woman.name.toLowerCase(),
+        vibeBadge: "Real Developer",
+        favoriteFramework: "React",
+        favoriteOS: "macOS",
+        favoriteDataStructure: "Hash Map",
+        favoriteAlgorithm: "Two Pointers",
+        challengeLevel: "EASY"
+      },
+      user.name
+    );
 
-    const needed = 20 - existingCount;
+    const needed = Math.max(0, 36 - existingCount);
     const messages = [];
     for (let i = 0; i < needed; i += 1) {
-      const fromUser = i % 2 === 0;
-      const content = i % 5 === 3
-        ? "const safeUpsert = async () => db.from('matches').upsert(payload, { onConflict: 'request_id' });"
-        : template[i % template.length];
+      const line = thread[i % thread.length];
       messages.push({
         room_id: roomId,
-        sender_id: fromUser ? userId : woman.id,
-        content,
-        format: i % 5 === 3 ? "CODE" : "MARKDOWN",
+        sender_id: line.sender === "admin" ? userId : woman.id,
+        content: line.content,
+        format: line.format,
         created_at: new Date(Date.now() - (needed - i) * 1000 * 60 * 15).toISOString()
       });
     }

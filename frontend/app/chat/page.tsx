@@ -3,6 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { MessageCircleMore, Search, Send } from "lucide-react";
 import { api } from "@/lib/api";
 import { RequireAuth } from "@/components/require-auth";
 import { useAuth } from "@/lib/auth";
@@ -14,16 +16,18 @@ export default function ChatPage() {
   const { currentUserId } = useAuth();
   const [matchId, setMatchId] = useState("");
   const [content, setContent] = useState("");
-  const [format, setFormat] = useState<"MARKDOWN" | "CODE" | "TEXT">("MARKDOWN");
+  const [search, setSearch] = useState("");
   const [realtimeState, setRealtimeState] = useState("disconnected");
   const [demoStatus, setDemoStatus] = useState("");
   const [seedAttempted, setSeedAttempted] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
 
   const matchesQuery = useQuery({
     queryKey: ["matches", currentUserId],
     queryFn: () => api.get<Match[]>(`/matches/${currentUserId}`),
-    enabled: Boolean(currentUserId)
+    enabled: Boolean(currentUserId),
+    staleTime: 20_000
   });
 
   const seedDemoMutation = useMutation({
@@ -71,8 +75,9 @@ export default function ChatPage() {
 
   const messagesQuery = useQuery({
     queryKey: ["messages", matchId, currentUserId],
-    queryFn: () => api.get<ChatMessage[]>(`/chat/${matchId}/messages?userId=${currentUserId}&limit=80`),
-    enabled: Boolean(matchId && currentUserId)
+    queryFn: () => api.get<ChatMessage[]>(`/chat/${matchId}/messages?userId=${currentUserId}&limit=200`),
+    enabled: Boolean(matchId && currentUserId),
+    staleTime: 5_000
   });
 
   useEffect(() => {
@@ -87,7 +92,6 @@ export default function ChatPage() {
       .channel(`chat:${matchId}`)
       .on("broadcast", { event: "new_message" }, () => {
         void queryClient.invalidateQueries({ queryKey: ["messages", matchId, currentUserId] });
-        void queryClient.invalidateQueries({ queryKey: ["stack-trace"] });
       })
       .subscribe((status) => {
         setRealtimeState(status === "SUBSCRIBED" ? "connected" : "disconnected");
@@ -102,6 +106,12 @@ export default function ChatPage() {
     };
   }, [currentUserId, matchId, queryClient]);
 
+  useEffect(() => {
+    const node = scrollerRef.current;
+    if (!node) return;
+    node.scrollTop = node.scrollHeight;
+  }, [messagesQuery.data, matchId]);
+
   const sendMutation = useMutation({
     mutationFn: async () => {
       if (!currentUserId) {
@@ -111,7 +121,7 @@ export default function ChatPage() {
       const message = await api.post<ChatMessage>(`/chat/${matchId}/messages`, {
         senderId: currentUserId,
         content: content.trim(),
-        format
+        format: "TEXT"
       });
 
       const channel = channelRef.current;
@@ -128,85 +138,190 @@ export default function ChatPage() {
     onSuccess: () => {
       setContent("");
       void queryClient.invalidateQueries({ queryKey: ["messages", matchId, currentUserId] });
-      void queryClient.invalidateQueries({ queryKey: ["stack-trace"] });
     }
   });
 
+  const matches = matchesQuery.data ?? [];
+  const filteredMatches = useMemo(() => {
+    const normalized = search.trim().toLowerCase();
+    if (!normalized) return matches;
+    return matches.filter((match) =>
+      `${match.userA.name} ${match.userB.name}`.toLowerCase().includes(normalized)
+    );
+  }, [matches, search]);
+
   const selectedMatch = useMemo(
-    () => (matchesQuery.data ?? []).find((match) => match.id === matchId) ?? null,
-    [matchesQuery.data, matchId]
+    () => matches.find((match) => match.id === matchId) ?? null,
+    [matches, matchId]
   );
+  const selectedOtherUser = useMemo(() => {
+    if (!selectedMatch || !currentUserId) {
+      return null;
+    }
+    return selectedMatch.userA.id === currentUserId ? selectedMatch.userB : selectedMatch.userA;
+  }, [currentUserId, selectedMatch]);
 
   return (
     <RequireAuth>
-      <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
-        <section className="rounded-xl border border-line bg-gradient-to-b from-panel to-panelAlt p-4">
-          <h1 className="text-base font-semibold">Chat / Direct Connection</h1>
-          <div className="mt-1 text-xs text-muted">Realtime status: {realtimeState}</div>
-          {demoStatus ? <div className="mt-1 text-xs text-muted">{demoStatus}</div> : null}
+      <div className="h-[calc(100vh-185px)] min-h-[560px] overflow-hidden rounded-3xl border border-line bg-gradient-to-br from-panel to-panelAlt shadow-2xl md:h-[calc(100vh-165px)]">
+        <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[330px_1fr]">
+          <aside className="flex min-h-0 flex-col border-b border-line bg-panel/90 lg:border-b-0 lg:border-r">
+            <div className="p-4">
+              <h1 className="text-lg font-semibold text-text">Direct Messages</h1>
+              <p className="mt-1 text-xs text-muted">
+                {realtimeState === "connected" ? "Realtime connected" : "Realtime disconnected"}
+              </p>
+              {demoStatus ? <p className="mt-1 text-xs text-muted">{demoStatus}</p> : null}
+            </div>
 
-          <label className="mt-4 block text-xs text-muted">Match</label>
-          <select
-            value={matchId}
-            onChange={(event) => setMatchId(event.target.value)}
-            className="mt-1 w-full rounded-md border border-line bg-panelAlt px-3 py-2 text-sm"
-          >
-            {(matchesQuery.data ?? []).map((match) => (
-              <option key={match.id} value={match.id}>
-                {match.userA.name} ↔ {match.userB.name}
-              </option>
-            ))}
-          </select>
-        </section>
+            <div className="px-4 pb-4">
+              <label className="relative block">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search DMs"
+                  className="w-full rounded-xl border border-line bg-panelAlt py-2 pl-9 pr-3 text-sm text-text outline-none focus:border-accent"
+                />
+              </label>
+            </div>
 
-        <section className="rounded-xl border border-line bg-gradient-to-b from-panel to-panelAlt p-4">
-          <div className="border-b border-line pb-3">
-            <h2 className="text-sm text-muted">
-              {selectedMatch ? `${selectedMatch.userA.name} and ${selectedMatch.userB.name}` : "No active match"}
-            </h2>
-          </div>
-
-          <div className="mt-3 h-[48vh] space-y-2 overflow-y-auto rounded-xl border border-line bg-panelAlt/90 p-3">
-            {(messagesQuery.data ?? []).map((message) => (
-              <div key={message.id} className="rounded-lg border border-line bg-gradient-to-r from-panel to-panelAlt px-3 py-2">
-                <div className="text-xs text-muted">
-                  {message.sender.name} · {new Date(message.createdAt).toLocaleTimeString()}
+            <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+              {filteredMatches.length === 0 ? (
+                <div className="m-2 rounded-xl border border-line bg-panelAlt p-4 text-sm text-muted">
+                  No conversations yet.
                 </div>
-                {message.format === "CODE" ? (
-                  <pre className="mt-1 overflow-x-auto text-xs text-accent">{message.content}</pre>
+              ) : (
+                filteredMatches.map((match) => {
+                  const active = match.id === matchId;
+                  const otherName =
+                    match.userA.id === currentUserId ? match.userB.name : match.userA.name;
+
+                  return (
+                    <button
+                      key={match.id}
+                      type="button"
+                      onClick={() => setMatchId(match.id)}
+                      className={`m-2 flex w-[calc(100%-1rem)] items-center gap-3 rounded-xl border px-3 py-3 text-left transition ${
+                        active
+                          ? "border-accent/40 bg-accent/10"
+                          : "border-line bg-panelAlt hover:border-accent/30 hover:bg-panel"
+                      }`}
+                    >
+                      {(
+                        match.userA.id === currentUserId ? match.userB.profileImage : match.userA.profileImage
+                      ) ? (
+                        <img
+                          src={(match.userA.id === currentUserId ? match.userB.profileImage : match.userA.profileImage) || ""}
+                          alt={otherName}
+                          className="h-11 w-11 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500/30 to-fuchsia-500/30 text-sm font-semibold text-text">
+                          {otherName.slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-text">{otherName}</div>
+                        <div className="truncate text-xs text-muted">
+                          {active ? "Open conversation" : "Tap to open"}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </aside>
+
+          <section className="flex min-h-0 flex-col bg-panel/60">
+            <div className="flex items-center justify-between border-b border-line px-5 py-4">
+              <div className="flex items-center gap-3">
+                {selectedOtherUser ? (
+                  <Link href={`/users/${selectedOtherUser.id}`} className="flex items-center gap-3">
+                    {selectedOtherUser.profileImage ? (
+                      <img
+                        src={selectedOtherUser.profileImage}
+                        alt={selectedOtherUser.name}
+                        className="h-10 w-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500/30 to-fuchsia-500/30">
+                        <MessageCircleMore className="h-5 w-5 text-text" />
+                      </div>
+                    )}
+                    <div>
+                      <h2 className="text-sm font-semibold text-text">{selectedOtherUser.name}</h2>
+                      <p className="text-xs text-muted">Open profile</p>
+                    </div>
+                  </Link>
                 ) : (
-                  <p className="mt-1 whitespace-pre-wrap text-sm">{message.content}</p>
+                  <>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500/30 to-fuchsia-500/30">
+                      <MessageCircleMore className="h-5 w-5 text-text" />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-semibold text-text">No active conversation</h2>
+                      <p className="text-xs text-muted">Developer direct connection</p>
+                    </div>
+                  </>
                 )}
               </div>
-            ))}
-          </div>
+            </div>
 
-          <div className="mt-3 flex gap-2">
-            <select
-              value={format}
-              onChange={(event) => setFormat(event.target.value as "MARKDOWN" | "CODE" | "TEXT")}
-              className="rounded-md border border-line bg-panelAlt px-2 py-2 text-sm"
-            >
-              <option value="MARKDOWN">Markdown</option>
-              <option value="CODE">Code</option>
-              <option value="TEXT">Text</option>
-            </select>
-            <input
-              value={content}
-              onChange={(event) => setContent(event.target.value)}
-              placeholder="Write a message or code snippet"
-              className="w-full rounded-md border border-line bg-panelAlt px-3 py-2 text-sm"
-            />
-            <button
-              type="button"
-              disabled={!matchId || !content.trim() || sendMutation.isPending || realtimeState !== "connected"}
-              onClick={() => sendMutation.mutate()}
-              className="rounded-md border border-cyan-400/60 bg-gradient-to-r from-cyan-500/20 to-fuchsia-500/20 px-4 py-2 text-sm text-accent disabled:opacity-50"
-            >
-              Send
-            </button>
-          </div>
-        </section>
+            <div ref={scrollerRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+              {(messagesQuery.data ?? []).length === 0 ? (
+                <div className="mt-2 rounded-xl border border-line bg-panelAlt p-4 text-sm text-muted">
+                  Start the conversation.
+                </div>
+              ) : (messagesQuery.data ?? []).map((message) => {
+                const mine = message.senderId === currentUserId;
+                return (
+                  <div key={message.id} className={`mb-3 flex ${mine ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={`max-w-[72%] rounded-2xl px-3 py-2 ${
+                        mine
+                          ? "rounded-br-md bg-gradient-to-r from-cyan-500 to-fuchsia-500 text-white"
+                          : "rounded-bl-md border border-line bg-panelAlt text-text"
+                      }`}
+                    >
+                      <div className={`mb-1 text-[11px] ${mine ? "text-white/80" : "text-muted"}`}>
+                        {message.sender.name} · {new Date(message.createdAt).toLocaleTimeString()}
+                      </div>
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="border-t border-line p-4">
+              <div className="flex items-center gap-2 rounded-xl border border-line bg-panelAlt p-2">
+                <input
+                  value={content}
+                  onChange={(event) => setContent(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey && matchId && content.trim() && !sendMutation.isPending) {
+                      event.preventDefault();
+                      sendMutation.mutate();
+                    }
+                  }}
+                  placeholder="Send a message..."
+                  className="w-full bg-transparent px-2 py-1 text-sm text-text outline-none"
+                />
+                <button
+                  type="button"
+                  disabled={!matchId || !content.trim() || sendMutation.isPending}
+                  onClick={() => sendMutation.mutate()}
+                  className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-cyan-500 to-fuchsia-500 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  <Send className="h-4 w-4" />
+                  Send
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
     </RequireAuth>
   );

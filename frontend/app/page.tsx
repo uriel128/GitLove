@@ -99,19 +99,19 @@ export default function LandingPage() {
       {/* Navigation */}
       <header className="fixed top-0 inset-x-0 z-50 w-full border-b border-black/[0.05] dark:border-transparent bg-slate-50/80 dark:bg-[#1a102d]/95 backdrop-blur-xl transition-all">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3">
             <div className="flex items-center justify-center">
-              <Logo className="w-6 h-6" />
+              <Logo className="w-8 h-8" />
             </div>
-            <span className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">GitLove</span>
-          </div>
+            <span className="text-2xl font-bold tracking-tight text-[#8B5CF6] dark:text-white">GitLove</span>
+          </Link>
           <div className="flex items-center gap-4">
             <ThemeToggle />
             <Link
               href="/login?mode=signup"
               className="group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-accent/10 px-6 py-2.5 text-sm font-semibold text-accent backdrop-blur-md transition-all hover:bg-accent/20 hover:scale-105 active:scale-95 border border-accent/20 hover:border-accent/40"
             >
-              <span>Sign In</span>
+              <span>Sign Up</span>
               <LogIn className="w-4 h-4 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
@@ -321,7 +321,7 @@ export default function LandingPage() {
         </section>
 
         {/* Reviews Section */}
-        <section id="reviews" className="relative py-24 bg-[#0a0710]">
+        <section id="reviews" className="relative py-24 bg-slate-100 dark:bg-[#0a0710]">
           <div className="mx-auto max-w-7xl px-6">
             <div className="text-center mb-16">
               <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Code Reviews</h2>
@@ -352,7 +352,7 @@ export default function LandingPage() {
                   image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=300&q=80"
                 }
               ].map((review, i) => (
-                <div key={i} className="p-8 rounded-3xl bg-white/[0.02] dark:bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-slate-900 dark:border-white/5 relative group">
+                <div key={i} className="p-8 rounded-3xl bg-white/60 dark:bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-slate-900 dark:border-white/5 relative group">
                   <div className="flex gap-1 mb-6">
                     {[...Array(review.rating)].map((_, idx) => (
                       <Star key={idx} className="w-4 h-4 fill-accent text-accent" />
