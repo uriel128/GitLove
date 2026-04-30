@@ -10,31 +10,31 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 const profiles = [
   {
-    name: "Nora, 25",
+    name: "Sabrina, 25",
     role: "Frontend Engineer",
     tags: ["React", "TypeScript", "Coffee Dates"],
-    image: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80",
+    image: "/images/sabrina.png",
     matchScore: "98%"
   },
   {
-    name: "Elena, 24",
+    name: "Sydney, 24",
     role: "UI/UX Designer",
     tags: ["Figma", "CSS", "Art"],
-    image: "/images/elena.png",
+    image: "/images/sydney.png",
     matchScore: "96%"
   },
   {
-    name: "Isabella, 28",
+    name: "Ana, 28",
     role: "Backend Architect",
     tags: ["Rust", "PostgreSQL", "Dogs"],
-    image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=900&q=80",
+    image: "/images/ana.png",
     matchScore: "91%"
   },
   {
-    name: "Mia, 26",
+    name: "Margot, 26",
     role: "Fullstack Developer",
     tags: ["Next.js", "GraphQL", "Travel"],
-    image: "/images/mia.png",
+    image: "/images/margot.png",
     matchScore: "89%"
   }
 ];
